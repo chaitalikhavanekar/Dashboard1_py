@@ -1,10 +1,6 @@
 streamlit
 requests
-requests-cache
 pandas
+textblob
 yfinance
-plotly
-vaderSentiment
-feedparser
-beautifulsoup4
-python-dotenv
+numpy
