@@ -26,6 +26,9 @@ Requirements (put into requirements.txt):
 # -------------- Imports --------------
 import os
 import time
+# --- API Key Setup ---
+# Directly store your NewsAPI key here
+api_key = "0cfaa15eee79489ba81fcc9fd418b1b8"
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 
@@ -49,7 +52,7 @@ try:
 except Exception:
     pass
 
-NEWSAPI_KEY = os.environ.get("NEWSAPI_KEY")  # optional; recommended for higher quality
+NEWSAPI_KEY = "0cfaa15eee79489ba81fcc9fd418b1b8"  # optional; recommended for higher quality
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0"
 
 # -------------- Theme / CSS (your palette) --------------
