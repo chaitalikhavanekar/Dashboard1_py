@@ -616,10 +616,55 @@ st.markdown("## 💹 Stock — single symbol deep dive (chart + corporate action
 st.markdown("Enter symbol in sidebar (e.g., RELIANCE.NS).")
 
 if stock_input:
-    with st.spinner(f"Fetching {stock_input} ..."):
-        sh = fetch_stock_history(stock_input, period="1y")
+    # --- Select time duration tab ---
+    st.markdown("### 📅 Select Time Range")
+    duration = st.tabs(["1D", "3M", "6M", "1Y", "2Y", "3Y", "5Y"])
+
+    # Map tab selection to Yahoo Finance period and interval
+    duration_map = {
+        "1D": ("1d", "5m"),
+        "3M": ("3mo", "1d"),
+        "6M": ("6mo", "1d"),
+        "1Y": ("1y", "1d"),
+        "2Y": ("2y", "1wk"),
+        "3Y": ("3y", "1wk"),
+        "5Y": ("5y", "1wk")
+    }
+
+    # Default to "1Y"
+    selected_period = "1Y"
+    for label in duration:
+        if label.title() == "1D":  # Tab 1 is active
+            selected_period = "1Y"  # fallback default
+        if label.title() == st.session_state.get("active_tab", "1Y"):
+            selected_period = label.title()
+
+    # Save active tab to session state
+    st.session_state["active_tab"] = selected_period
+
+    period, interval = duration_map[selected_period]
+
+    with st.spinner(f"Fetching {stock_input} data ({selected_period})..."):
+        sh = yf.download(stock_input, period=period, interval=interval)
         sa = fetch_stock_actions(stock_input)
-# --- Clean and standardize stock data (works for all companies) ---
+
+    # Clean stock data
+    if not sh.empty:
+        sh = sh.reset_index()
+        if isinstance(sh.columns, pd.MultiIndex):
+            sh.columns = [col[0] if isinstance(col, tuple) else col for col in sh.columns]
+
+        sh.rename(columns={
+            "Date": "Date",
+            "Close": "close",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Volume": "volume"
+        }, inplace=True, errors="ignore")
+
+        sh.dropna(inplace=True)
+        sh = sh.sort_values("Date")# --- Clean and standardize stock data (works for all companies) ---
     if not sh.empty:
         sh = sh.reset_index()
 
@@ -659,6 +704,22 @@ except Exception:
 # --- Stock performance metric (safe casting) ---
 try:
     latest_val = float(latest) if pd.notna(latest) else 0.0
+# --- Display open, close, high, low ---
+        latest_row = sh.iloc[-1]
+        first_row = sh.iloc[0]
+
+        open_price = float(first_row["open"])
+        close_price = float(latest_row["close"])
+        high_price = float(latest_row["high"])
+        low_price = float(latest_row["low"])
+        pct_change = ((close_price - open_price) / open_price) * 100
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+        col1.metric("Open (₹)", f"{open_price:,.2f}")
+        col2.metric("Close (₹)", f"{close_price:,.2f}")
+        col3.metric("High (₹)", f"{high_price:,.2f}")
+        col4.metric("Low (₹)", f"{low_price:,.2f}")
+        col5.metric("Change %", f"{pct_change:+.2f}%")
     pct_val = float(pct) if pd.notna(pct) else 0.0
     st.metric(f"{stock_input} Latest", f"{latest_val:,.2f}", f"{pct_val:+.2f}%")
 except Exception as e:
