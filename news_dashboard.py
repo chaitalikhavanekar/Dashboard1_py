@@ -669,7 +669,7 @@ try:
         title=f"{stock_input.upper()} Trend Overview (with Moving Averages)",
         labels={"close": "Price (₹)", "Date": "Date"},
     )
-
+try:
     # Update the base line (actual stock price)
     fig_ma.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
 
@@ -680,12 +680,14 @@ try:
             mode="lines", name="MA20 (Short)",
             line=dict(width=1.8, dash="dot", color=PALETTE["teal"])
         )
+
     if show_ma50:
         fig_ma.add_scatter(
             x=sh["Date"], y=sh["MA50"],
             mode="lines", name="MA50 (Medium)",
             line=dict(width=1.8, dash="dot", color=PALETTE["mid"])
         )
+
     if show_ma200:
         fig_ma.add_scatter(
             x=sh["Date"], y=sh["MA200"],
@@ -696,9 +698,7 @@ try:
     st.plotly_chart(fig_ma, use_container_width=True)
 
 except Exception as e:
-    st.warning(f"Moving average overlay unavailable: {e}")
-    show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
-    show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
+    st.warning(f"Moving average overlay unavailable: {e}")    show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
     show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
 
     # Calculate moving averages
