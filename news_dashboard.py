@@ -697,8 +697,11 @@ try:
     st.plotly_chart(fig_ma, use_container_width=True)
 
 except Exception as e:
-    st.warning(f"Moving average overlay unavailable: {e}")    show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
-    show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
+    st.warning(f"Moving average overlay unavailable: {e}")
+
+show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
+show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
+show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
 
     # Calculate moving averages
     sh["MA20"] = sh["close"].rolling(window=20).mean()
