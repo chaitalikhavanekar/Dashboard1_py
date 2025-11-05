@@ -635,19 +635,19 @@ except Exception as e:
 if sh is not None and not sh.empty:
     if "Date" not in sh.columns:
         sh = sh.reset_index()  # Ensure Date column exists for Plotly
-    try:
-        fig = px.line(
-            sh,
-            x="Date",
-            y="close",
-            title=f"{stock_input} — 1 year",
-            labels={"close": "Price", "Date": "Date"},
-        )
-        fig.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
+try:
+    fig = px.line(
+        sh,
+        x="Date",
+        y="close",
+        title=f"{stock_input} – 1 year",
+        labels={"close": "Price", "Date": "Date"},
+    )
+    fig.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
     st.plotly_chart(fig, use_container_width=True)
+
 except Exception as e:
-    st.warning(f"Chart rendering failed for {stock_input}: {e}")
-# --- Moving Averages Overlay ---
+    st.warning(f"Chart rendering failed for {stock_input}: {e}")# --- Moving Averages Overlay ---
 st.markdown("### 📊 Moving Averages (Trend Analysis)")
 
 try:
