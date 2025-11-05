@@ -715,28 +715,17 @@ except Exception:
 
 # --- Stock performance metric (safe casting) ---
 try:
-    latest_val = float(latest) if pd.notna(latest) else 0.0
-# --- Display open, close, high, low ---
-        latest_row = sh.iloc[-1]
-        first_row = sh.iloc[0]
+    latest_row = sh.iloc[-1]
+    prev_row = sh.iloc[-2] if len(sh) > 1 else sh.iloc[-1]
 
-        open_price = float(first_row["open"])
-        close_price = float(latest_row["close"])
-        high_price = float(latest_row["high"])
-        low_price = float(latest_row["low"])
-        pct_change = ((close_price - open_price) / open_price) * 100
+    latest_val = float(latest_row["Close"]) if "Close" in sh.columns else 0.0
+    prev_val = float(prev_row["Close"]) if "Close" in sh.columns else 0.0
 
-        col1, col2, col3, col4, col5 = st.columns(5)
-        col1.metric("Open (₹)", f"{open_price:,.2f}")
-        col2.metric("Close (₹)", f"{close_price:,.2f}")
-        col3.metric("High (₹)", f"{high_price:,.2f}")
-        col4.metric("Low (₹)", f"{low_price:,.2f}")
-        col5.metric("Change %", f"{pct_change:+.2f}%")
-    pct_val = float(pct) if pd.notna(pct) else 0.0
-    st.metric(f"{stock_input} Latest", f"{latest_val:,.2f}", f"{pct_val:+.2f}%")
+    pct_val = ((latest_val - prev_val) / prev_val * 100) if prev_val else 0.0
+
+    st.metric(f"{stock_input} (Last Close)", f"{latest_val:.2f}", f"{pct_val:+.2f}%")
 except Exception as e:
-    st.warning(f"Could not display metric for {stock_input}: {e}")
-# --- Stock chart (safe rendering) ---
+    st.warning(f"Could not display metric for {stock_input}: {e}")# --- Stock chart (safe rendering) ---
 if sh is not None and not sh.empty:
     if "Date" not in sh.columns:
         sh = sh.reset_index()  # Ensure Date column exists for Plotly
