@@ -699,6 +699,78 @@ if stock_input:
 
         # Sort by date (important for moving averages)
         sh = sh.sort_values("Date")
+
+# --- 🌍 Global Live Stock Data (India + US + Indices) ---
+import yfinance as yf
+from datetime import datetime, timedelta
+
+st.markdown("## 💰 Live Global Stock Data")
+
+try:
+    if stock_input:
+        # Detect and fetch data
+        ticker = yf.Ticker(stock_input)
+        data = ticker.history(period="1d", interval="1m")
+
+        if data.empty:
+            st.warning("⚠️ No intraday data available. Try a different stock or suffix (e.g., RELIANCE.NS / AAPL).")
+        else:
+            latest = data.iloc[-1]
+            prev = data.iloc[-2] if len(data) > 1 else latest
+
+            current_price = float(latest["Close"])
+            prev_price = float(prev["Close"])
+            change_val = current_price - prev_price
+            change_pct = (change_val / prev_price) * 100 if prev_price else 0.0
+            open_price = float(latest["Open"])
+            high_price = float(latest["High"])
+            low_price = float(latest["Low"])
+            volume = int(latest["Volume"])
+
+            arrow = "▲" if change_val > 0 else "▼" if change_val < 0 else "→"
+            color = "green" if change_val > 0 else "red" if change_val < 0 else "gray"
+            sentiment = "Bullish 📈" if change_val > 0 else "Bearish 📉" if change_val < 0 else "Neutral ⚖️"
+
+            with st.container(border=True):
+                col1, col2, col3, col4, col5, col6 = st.columns([1.4, 1, 1, 1, 1, 1])
+                col1.markdown(f"<h2 style='color:{color};font-weight:bold;'>{arrow} ₹{current_price:,.2f}</h2>", unsafe_allow_html=True)
+                col1.markdown(f"<span style='color:{color};font-size:15px;'>({change_val:+.2f} ₹ / {change_pct:+.2f}%)</span>", unsafe_allow_html=True)
+                col2.metric("Open", f"{open_price:,.2f}")
+                col3.metric("High", f"{high_price:,.2f}")
+                col4.metric("Low", f"{low_price:,.2f}")
+                col5.metric("Volume", f"{volume:,}")
+                col6.markdown(f"<b style='color:{color}'>{sentiment}</b>", unsafe_allow_html=True)
+
+                st.caption(f"🕒 Last updated: {latest.name.strftime('%Y-%m-%d %H:%M:%S')}")
+
+                import plotly.graph_objects as go
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=data.index, y=data["Close"], mode="lines",
+                    line=dict(color=color, width=2)
+                ))
+                fig.update_layout(
+                    height=140,
+                    margin=dict(l=20, r=20, t=20, b=20),
+                    xaxis_visible=False, yaxis_visible=False
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+                if change_pct > 3:
+                    tag = "🔥 Overvalued (Rally)"
+                elif change_pct < -3:
+                    tag = "🧊 Undervalued (Dip)"
+                else:
+                    tag = "⚖️ Fair Value"
+                st.info(tag)
+
+    else:
+        st.warning("Enter a stock symbol to see live data (e.g., RELIANCE.NS or AAPL).")
+
+except Exception as e:
+    st.error(f"Error fetching live global stock data: {e}")
+
+        
     if sh.empty:
         st.warning("No history for this symbol. Check symbol suffix (.NS for NSE).")
     else:
