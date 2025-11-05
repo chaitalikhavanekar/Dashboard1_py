@@ -772,8 +772,7 @@ try:
     st.plotly_chart(fig_ma, use_container_width=True)
 
 except Exception as e:
-    st.warning(f"Moving average overlay unavailable: {e}")    st.warning(f"Moving average overlay unavailable: {e}")
-
+    st.warning(f"Moving average overlay unavailable: {e}")
 else:
     st.warning(
         f"No historical data found for {stock_input}. "
