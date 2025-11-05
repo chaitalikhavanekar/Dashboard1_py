@@ -669,7 +669,6 @@ try:
         title=f"{stock_input.upper()} Trend Overview (with Moving Averages)",
         labels={"close": "Price (₹)", "Date": "Date"},
     )
-try:
     # Update the base line (actual stock price)
     fig_ma.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
 
