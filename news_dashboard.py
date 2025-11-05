@@ -733,9 +733,10 @@ try:
     st.markdown("### 📊 Moving Averages (Trend Analysis)")
 
     # Checkbox controls
-show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True, key="ma20_checkbox")
-show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True, key="ma50_checkbox")
-show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False, key="ma200_checkbox")
+    show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True, key="ma20_checkbox")
+    show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True, key="ma50_checkbox")
+    show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False, key="ma200_checkbox")
+
     # Calculate moving averages
     sh["MA20"] = sh["close"].rolling(window=20).mean()
     sh["MA50"] = sh["close"].rolling(window=50).mean()
@@ -751,9 +752,7 @@ show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False, key="ma200_check
     )
 
     # Update base line color
-    fig_ma.update_traces(
-        line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2)
-    )
+    fig_ma.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
 
     # Add optional MA lines
     if show_ma20:
@@ -781,7 +780,6 @@ show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False, key="ma200_check
 
 except Exception as e:
     st.warning(f"Moving average overlay unavailable: {e}")
-
 else:
     st.warning(
         f"No historical data found for {stock_input}. "
