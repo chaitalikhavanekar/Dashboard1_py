@@ -628,10 +628,35 @@ st.markdown("## 💹 Stock — single symbol deep dive (chart + corporate action
 st.markdown("Enter symbol in sidebar (e.g., RELIANCE.NS).")
 
 if stock_input:
-    # --- Select time duration tab ---
-    st.markdown("### 📅 Select Time Range")
-    duration = st.tabs(["1D", "3M", "6M", "1Y", "2Y", "3Y", "5Y"])
+# --- Select time duration ---
+st.markdown("### 📅 Select Time Range")
 
+tab_labels = ["1D", "3M", "6M", "1Y", "2Y", "3Y", "5Y"]
+tabs = st.tabs(tab_labels)
+
+# Map display tab → yfinance parameters
+period_map = {
+    "1D": ("1d", "5m"),
+    "3M": ("3mo", "1d"),
+    "6M": ("6mo", "1d"),
+    "1Y": ("1y", "1d"),
+    "2Y": ("2y", "1wk"),
+    "3Y": ("3y", "1wk"),
+    "5Y": ("5y", "1wk")
+}
+
+# Store selected period in session state
+if "selected_period" not in st.session_state:
+    st.session_state["selected_period"] = "1Y"
+
+for label, tab in zip(tab_labels, tabs):
+    with tab:
+        if st.button(f"Select {label}", key=f"tab_{label}"):
+            st.session_state["selected_period"] = label
+            st.experimental_rerun()
+
+selected_label = st.session_state["selected_period"]
+period, interval = period_map[selected_label]
     # Map tab selection to Yahoo Finance period and interval
     duration_map = {
         "1D": ("1d", "5m"),
@@ -700,173 +725,92 @@ if stock_input:
         # Sort by date (important for moving averages)
         sh = sh.sort_values("Date")
 
-# --- 🌍 Global Live Stock Data (India + US + Indices) ---
-import yfinance as yf
-from datetime import datetime, timedelta
-
-st.markdown("## 💰 Live Global Stock Data")
+# ---------- 🌍 Global Stock Snapshot + Corporate Section ----------
+st.markdown("---")
+st.markdown("## 💹 Live Stock Overview")
 
 try:
     if stock_input:
-        # Detect and fetch data
         ticker = yf.Ticker(stock_input)
         data = ticker.history(period="1d", interval="1m")
+        actions = fetch_stock_actions(stock_input)
 
         if data.empty:
-            st.warning("⚠️ No intraday data available. Try a different stock or suffix (e.g., RELIANCE.NS / AAPL).")
+            st.warning("⚠️ No intraday data available. Try RELIANCE.NS / AAPL.")
         else:
             latest = data.iloc[-1]
             prev = data.iloc[-2] if len(data) > 1 else latest
 
-            current_price = float(latest["Close"])
-            prev_price = float(prev["Close"])
-            change_val = current_price - prev_price
-            change_pct = (change_val / prev_price) * 100 if prev_price else 0.0
-            open_price = float(latest["Open"])
-            high_price = float(latest["High"])
-            low_price = float(latest["Low"])
-            volume = int(latest["Volume"])
+            cur = float(latest["Close"])
+            prev_val = float(prev["Close"])
+            chg_val = cur - prev_val
+            chg_pct = (chg_val / prev_val) * 100 if prev_val else 0
+            color = "green" if chg_val > 0 else "red" if chg_val < 0 else "gray"
+            arrow = "▲" if chg_val > 0 else "▼" if chg_val < 0 else "→"
+            sentiment = "Bullish 📈" if chg_val > 0 else "Bearish 📉" if chg_val < 0 else "Neutral ⚖️"
 
-            arrow = "▲" if change_val > 0 else "▼" if change_val < 0 else "→"
-            color = "green" if change_val > 0 else "red" if change_val < 0 else "gray"
-            sentiment = "Bullish 📈" if change_val > 0 else "Bearish 📉" if change_val < 0 else "Neutral ⚖️"
+            # ---- price metrics ----
+            open_p, high_p, low_p, vol = map(
+                float, [latest["Open"], latest["High"], latest["Low"], latest["Volume"]]
+            )
 
             with st.container(border=True):
-                col1, col2, col3, col4, col5, col6 = st.columns([1.4, 1, 1, 1, 1, 1])
-                col1.markdown(f"<h2 style='color:{color};font-weight:bold;'>{arrow} ₹{current_price:,.2f}</h2>", unsafe_allow_html=True)
-                col1.markdown(f"<span style='color:{color};font-size:15px;'>({change_val:+.2f} ₹ / {change_pct:+.2f}%)</span>", unsafe_allow_html=True)
-                col2.metric("Open", f"{open_price:,.2f}")
-                col3.metric("High", f"{high_price:,.2f}")
-                col4.metric("Low", f"{low_price:,.2f}")
-                col5.metric("Volume", f"{volume:,}")
-                col6.markdown(f"<b style='color:{color}'>{sentiment}</b>", unsafe_allow_html=True)
-
+                c1, c2, c3, c4, c5, c6 = st.columns([1.5, 1, 1, 1, 1, 1])
+                c1.markdown(f"<h2 style='color:{color}'>{arrow} ₹{cur:,.2f}</h2>", unsafe_allow_html=True)
+                c1.caption(f"{chg_val:+.2f} ₹ / {chg_pct:+.2f}%")
+                c2.metric("Open", f"{open_p:,.2f}")
+                c3.metric("High", f"{high_p:,.2f}")
+                c4.metric("Low", f"{low_p:,.2f}")
+                c5.metric("Volume", f"{int(vol):,}")
+                c6.markdown(f"<b style='color:{color}'>{sentiment}</b>", unsafe_allow_html=True)
                 st.caption(f"🕒 Last updated: {latest.name.strftime('%Y-%m-%d %H:%M:%S')}")
 
-                import plotly.graph_objects as go
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(
-                    x=data.index, y=data["Close"], mode="lines",
-                    line=dict(color=color, width=2)
-                ))
-                fig.update_layout(
-                    height=140,
-                    margin=dict(l=20, r=20, t=20, b=20),
-                    xaxis_visible=False, yaxis_visible=False
-                )
-                st.plotly_chart(fig, use_container_width=True)
+            # ---- mini chart ----
+            import plotly.graph_objects as go
+            fig = go.Figure(go.Scatter(x=data.index, y=data["Close"],
+                                       mode="lines", line=dict(color=color, width=2)))
+            fig.update_layout(height=160, margin=dict(l=0, r=0, t=0, b=0),
+                              xaxis_visible=False, yaxis_visible=False)
+            st.plotly_chart(fig, use_container_width=True)
 
-                if change_pct > 3:
-                    tag = "🔥 Overvalued (Rally)"
-                elif change_pct < -3:
-                    tag = "🧊 Undervalued (Dip)"
+            st.info("🔥 Overvalued" if chg_pct > 3 else "🧊 Undervalued" if chg_pct < -3 else "⚖️ Fair Value")
+
+            # ---------- Corporate actions + News side-by-side ----------
+            st.markdown("### 🏢 Corporate Actions and News")
+            left, right = st.columns([1.1, 1.9])
+
+            with left:
+                st.markdown("#### 📘 Company Actions")
+                divs = actions.get("dividends", pd.Series(dtype=float))
+                splits = actions.get("splits", pd.Series(dtype=float))
+                if not getattr(divs, "empty", True):
+                    st.dataframe(divs.tail(8).reset_index(), hide_index=True)
                 else:
-                    tag = "⚖️ Fair Value"
-                st.info(tag)
+                    st.info("No dividends found.")
+                if not getattr(splits, "empty", True):
+                    st.dataframe(splits.tail(8).reset_index(), hide_index=True)
+                else:
+                    st.info("No splits found.")
+
+            with right:
+                st.markdown("#### 📰 Latest Corporate Headlines")
+                try:
+                    url = (f"https://newsapi.org/v2/everything?"
+                           f"q={stock_input}+corporate+actions&sortBy=publishedAt&pageSize=5&apiKey={st.secrets['NEWSAPI_KEY']}")
+                    js = requests.get(url).json()
+                    for art in js.get("articles", [])[:5]:
+                        st.markdown(f"**[{art['title']}]({art['url']})**")
+                        st.caption(f"{art['source']['name']} — {art['publishedAt'][:16].replace('T',' ')}")
+                        st.caption(art.get('description') or '')
+                        st.divider()
+                except Exception as e:
+                    st.warning(f"Could not load corporate news: {e}")
 
     else:
-        st.warning("Enter a stock symbol to see live data (e.g., RELIANCE.NS or AAPL).")
+        st.info("Enter a stock symbol in the sidebar (e.g., RELIANCE.NS or AAPL).")
 
 except Exception as e:
-    st.error(f"Error fetching live global stock data: {e}")
-
-        
-    if sh.empty:
-        st.warning("No history for this symbol. Check symbol suffix (.NS for NSE).")
-    else:
-        latest = sh["close"].iloc[-1]
-        prev = sh["close"].iloc[-2] if len(sh) > 1 else latest
-  # --- Safe percentage change calculation ---
-try:
-    if prev is None or pd.isna(prev) or prev == 0:
-        pct = 0.0
-    else:
-        pct = ((latest - prev) / prev) * 100
-except Exception:
-    pct = 0.0
-
-# --- Stock performance metric (safe casting) ---
-try:
-    latest_row = sh.iloc[-1]
-    prev_row = sh.iloc[-2] if len(sh) > 1 else sh.iloc[-1]
-
-    latest_val = float(latest_row["Close"]) if "Close" in sh.columns else 0.0
-    prev_val = float(prev_row["Close"]) if "Close" in sh.columns else 0.0
-
-    pct_val = ((latest_val - prev_val) / prev_val * 100) if prev_val else 0.0
-
-    st.metric(f"{stock_input} (Last Close)", f"{latest_val:.2f}", f"{pct_val:+.2f}%")
-except Exception as e:
-    st.warning(f"Could not display metric for {stock_input}: {e}")# --- Stock chart (safe rendering) ---
-if sh is not None and not sh.empty:
-    if "Date" not in sh.columns:
-        sh = sh.reset_index()  # Ensure Date column exists for Plotly
-try:
-    fig = px.line(
-        sh,
-        x="Date",
-        y="close",
-        title=f"{stock_input} – 1 year",
-        labels={"close": "Price", "Date": "Date"},
-    )
-    fig.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
-    st.plotly_chart(fig, use_container_width=True)
-
-except Exception as e:
-    st.warning(f"Chart rendering failed for {stock_input}: {e}")# --- Moving Averages Overlay ---
-# --- Corporate Actions and News Section ---
-st.markdown("### 🏢 Corporate Actions & News")
-
-col_left, col_right = st.columns([1.2, 1.8])
-
-with col_left:
-    st.markdown("#### 📘 Company Corporate Actions")
-    try:
-        if not sa.empty:
-            sa = sa.reset_index()
-            sa.rename(columns={
-                "Date": "Date",
-                "Action": "Action Type",
-                "Value": "Value"
-            }, inplace=True, errors="ignore")
-
-            # Show clean action table
-            st.dataframe(
-                sa[["Date", "Action Type", "Value"]],
-                use_container_width=True,
-                hide_index=True
-            )
-        else:
-            st.info("No recent corporate actions available.")
-    except Exception as e:
-        st.warning(f"Corporate actions unavailable: {e}")
-
-with col_right:
-    st.markdown("#### 📰 Live Corporate News")
-    try:
-        if search_query == "":
-            search_query = stock_input
-
-        # Fetch live corporate-related news
-        url = f"https://newsapi.org/v2/everything?q={stock_input}+corporate+actions&sortBy=publishedAt&pageSize=6&apiKey={st.secrets['NEWSAPI_KEY']}"
-        resp = requests.get(url)
-        data = resp.json()
-
-        if "articles" in data:
-            articles = data["articles"]
-            for article in articles[:6]:
-                st.markdown(
-                    f"**[{article['title']}]({article['url']})**  \n"
-                    f"*{article['source']['name']} — {article['publishedAt'][:16].replace('T', ' ')}*"
-                )
-                st.caption(article["description"] or "")
-                st.markdown("---")
-        else:
-            st.info("No recent corporate news found.")
-    except Exception as e:
-        st.warning(f"Corporate news unavailable: {e}")
-    
-st.markdown("### 📊 Moving Averages (Trend Analysis)")
+    st.error(f"Stock section error: {e}")st.markdown("### 📊 Moving Averages (Trend Analysis)")
 
 try:
     # Checkbox controls
