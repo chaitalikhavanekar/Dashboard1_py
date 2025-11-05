@@ -623,7 +623,7 @@ try:
         pct = ((latest - prev) / prev) * 100
 except Exception:
     pct = 0.0# 
-    ✅ Stock performance metric (correct indentation)
+# Stock performance metric (correct indentation)
 st.metric(f"{stock_input} Latest", f"{latest:,.2f}", f"{pct:+.2f}%")
 
 fig = px.line(sh, x="Date", y="close", title=f"{stock_input} — 1 year")
