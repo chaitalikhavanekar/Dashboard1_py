@@ -39,6 +39,21 @@ from textblob import TextBlob
 
 import streamlit as st
 
+# --- Function to fetch fresh news ---
+import requests
+import pandas as pd
+
+def fetch_latest_news(topic):
+    """Fetch real-time news from GNews API (last ~15 minutes)."""
+    url = f"https://gnews.io/api/v4/search?q={topic}&lang=en&country=in&max=10&sortby=publishedAt&token={st.secrets['GNEWS_API_KEY']}"
+    try:
+        data = requests.get(url).json()
+        df = pd.DataFrame(data["articles"])[["title", "publishedAt", "url"]]
+        return df
+    except Exception as e:
+        st.warning(f"Could not fetch latest news: {e}")
+        return pd.DataFrame()
+
 # optional autorefresh
 try:
     from streamlit_autorefresh import st_autorefresh
@@ -344,15 +359,17 @@ headlines_count = st.sidebar.slider("Headlines to show", min_value=3, max_value=
 auto_ref = st.sidebar.selectbox("Auto-refresh", options=["Off","30s","1m","5m"], index=2)
 stock_input = st.sidebar.text_input("Single stock (one symbol)", value="RELIANCE.NS")
 st.sidebar.markdown("---")
-st.sidebar.markdown("**Interests (for personalization)**")
-st.sidebar.markdown("---")
-st.sidebar.markdown("**Interests (for personalization)**")
+# --- Interests (for personalization) ---
+st.sidebar.markdown("### 🧠 Interests for personalization")
 
-options_list = ["RBI", "infrastructure", "startups", "banks", "inflation", "GDP", "employment", "policy", "stock"]
-saved_prefs = [p for p in st.session_state.get("prefs", []) if p in options_list]
-
-prefs = st.sidebar.multiselect(
+interests = st.sidebar.multiselect(
     "Pick interests",
+    ["RBI", "infrastructure", "startups", "banks", "inflation", "GDP", "employment", "policy", "stock"],
+    default=["inflation", "RBI"]
+)
+
+if st.sidebar.button("Save interests"):
+    st.session_state["interests"] = interests    "Pick interests",
     options=options_list,
     default=saved_prefs
 )
@@ -724,10 +741,9 @@ try:
     st.markdown("### 📊 Moving Averages (Trend Analysis)")
 
     # Checkbox controls
-    show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
-    show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
-    show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
-
+show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True, key="ma20_checkbox")
+show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True, key="ma50_checkbox")
+show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False, key="ma200_checkbox")
     # Calculate moving averages
     sh["MA20"] = sh["close"].rolling(window=20).mean()
     sh["MA50"] = sh["close"].rolling(window=50).mean()
@@ -802,7 +818,31 @@ except Exception as e:
     st.error(f"Corporate actions error: {e}")
 
 # Related news
+# --- Auto-refresh every 60 seconds for latest data ---
+from streamlit_autorefresh import st_autorefresh
+st_autorefresh(interval=60 * 1000, key="news_refresh")
 st.markdown("### Related news (search fallback)")
+import streamlit.components.v1 as components
+
+st.markdown("### 🔥 Trending Now")
+trending_html = """
+<marquee behavior="scroll" direction="left" scrollamount="5" style="color:#FF4B4B; font-weight:bold; font-size:18px;">
+Breaking: RBI policy update • Sensex jumps 500 points • Reliance launches new EV venture • Gold prices dip 1.5%
+</marquee>
+"""
+components.html(trending_html, height=40)
+# --- Personalized News Feed Section ---
+if interests:
+    for topic in interests:
+        st.markdown(f"### 🗞️ {topic.title()} News")
+        df = fetch_latest_news(topic)
+        if not df.empty:
+            for i, row in df.iterrows():
+                st.markdown(f"**[{row['title']}]({row['url']})**")
+                st.caption(f"🕒 {row['publishedAt']}")
+                st.divider()
+        else:
+            st.info(f"No recent news found for {topic}.")
 related = fetch_news(f"{search_query} {stock_input}", n=6)
 if related:
     for r in related:
