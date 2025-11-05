@@ -42,6 +42,18 @@ import streamlit as st
 # --- Function to fetch fresh news ---
 import requests
 import pandas as pd
+st.markdown("""
+    <style>
+    .block-container {
+        padding-top: 1.5rem;
+        padding-bottom: 0rem;
+    }
+    .stDataFrame {
+        border-radius: 12px;
+        box-shadow: 0px 2px 8px rgba(0,0,0,0.05);
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 def fetch_latest_news(topic):
     """Fetch real-time news from GNews API (last ~15 minutes)."""
@@ -741,6 +753,58 @@ try:
 
 except Exception as e:
     st.warning(f"Chart rendering failed for {stock_input}: {e}")# --- Moving Averages Overlay ---
+# --- Corporate Actions and News Section ---
+st.markdown("### 🏢 Corporate Actions & News")
+
+col_left, col_right = st.columns([1.2, 1.8])
+
+with col_left:
+    st.markdown("#### 📘 Company Corporate Actions")
+    try:
+        if not sa.empty:
+            sa = sa.reset_index()
+            sa.rename(columns={
+                "Date": "Date",
+                "Action": "Action Type",
+                "Value": "Value"
+            }, inplace=True, errors="ignore")
+
+            # Show clean action table
+            st.dataframe(
+                sa[["Date", "Action Type", "Value"]],
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("No recent corporate actions available.")
+    except Exception as e:
+        st.warning(f"Corporate actions unavailable: {e}")
+
+with col_right:
+    st.markdown("#### 📰 Live Corporate News")
+    try:
+        if search_query == "":
+            search_query = stock_input
+
+        # Fetch live corporate-related news
+        url = f"https://newsapi.org/v2/everything?q={stock_input}+corporate+actions&sortBy=publishedAt&pageSize=6&apiKey={st.secrets['NEWSAPI_KEY']}"
+        resp = requests.get(url)
+        data = resp.json()
+
+        if "articles" in data:
+            articles = data["articles"]
+            for article in articles[:6]:
+                st.markdown(
+                    f"**[{article['title']}]({article['url']})**  \n"
+                    f"*{article['source']['name']} — {article['publishedAt'][:16].replace('T', ' ')}*"
+                )
+                st.caption(article["description"] or "")
+                st.markdown("---")
+        else:
+            st.info("No recent corporate news found.")
+    except Exception as e:
+        st.warning(f"Corporate news unavailable: {e}")
+    
 st.markdown("### 📊 Moving Averages (Trend Analysis)")
 
 try:
