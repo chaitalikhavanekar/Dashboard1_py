@@ -615,7 +615,7 @@ if stock_input:
     else:
         latest = sh["close"].iloc[-1]
         prev = sh["close"].iloc[-2] if len(sh) > 1 else latest
-      # --- Safe percentage change calculation ---
+  # --- Safe percentage change calculation ---
 try:
     if prev is None or pd.isna(prev) or prev == 0:
         pct = 0.0
@@ -623,7 +623,9 @@ try:
         pct = ((latest - prev) / prev) * 100
 except Exception:
     pct = 0.0
-        st.metric(f"{stock_input} Latest", f"{latest:,.2f}", f"{pct:+.2f}%")
+
+# ✅ Stock performance metric (correct indentation)
+st.metric(f"{stock_input} Latest", f"{latest:,.2f}", f"{pct:+.2f}%")      st.metric(f"{stock_input} Latest", f"{latest:,.2f}", f"{pct:+.2f}%")
         fig = px.line(sh, x="Date", y="close", title=f"{stock_input} — 1 year")
         fig.update_traces(line=dict(color=PALETTE["pos"] if pct>=0 else PALETTE["neg"], width=2))
         st.plotly_chart(fig, use_container_width=True)
