@@ -703,23 +703,22 @@ show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
 show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
 show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
 
-    # Calculate moving averages
+# Calculate moving averages
 sh["MA20"] = sh["close"].rolling(window=20).mean()
 sh["MA50"] = sh["close"].rolling(window=50).mean()
 sh["MA200"] = sh["close"].rolling(window=200).mean()
 
-    # Create chart with moving averages
-    fig_ma = px.line(
-        sh,
-        x="Date",
-        y="close",
-        title=f"{stock_input.upper()} Trend Overview (with Moving Averages)",
-        labels={"close": "Price (₹)", "Date": "Date"},
-    )
+# Create chart with moving averages
+fig_ma = px.line(
+    sh,
+    x="Date",
+    y="close",
+    title=f"{stock_input.upper()} Trend Overview (with Moving Averages)",
+    labels={"close": "Price (₹)", "Date": "Date"},
+)
 
-    # Update the base line (actual stock price)
-    fig_ma.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
-
+# Update base line color
+fig_ma.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
     # Add optional moving average lines
     if show_ma20:
         fig_ma.add_scatter(
