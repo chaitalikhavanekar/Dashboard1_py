@@ -810,8 +810,10 @@ try:
         st.info("Enter a stock symbol in the sidebar (e.g., RELIANCE.NS or AAPL).")
 
 except Exception as e:
-    st.error(f"Stock section error: {e}")st.markdown("### 📊 Moving Averages (Trend Analysis)")
+    st.error(f"Stock section error: {e}")
 
+# --- Moving Averages (Trend Analysis) ---
+st.markdown("### 📊 Moving Averages (Trend Analysis)")
 try:
     # Checkbox controls
     show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
