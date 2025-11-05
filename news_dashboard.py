@@ -628,35 +628,35 @@ st.markdown("## 💹 Stock — single symbol deep dive (chart + corporate action
 st.markdown("Enter symbol in sidebar (e.g., RELIANCE.NS).")
 
 if stock_input:
-# --- Select time duration ---
-st.markdown("### 📅 Select Time Range")
+    # --- Select time duration ---
+    st.markdown("### 📅 Select Time Range")
 
-tab_labels = ["1D", "3M", "6M", "1Y", "2Y", "3Y", "5Y"]
-tabs = st.tabs(tab_labels)
+    tab_labels = ["1D", "3M", "6M", "1Y", "2Y", "3Y", "5Y"]
+    tabs = st.tabs(tab_labels)
 
-# Map display tab → yfinance parameters
-period_map = {
-    "1D": ("1d", "5m"),
-    "3M": ("3mo", "1d"),
-    "6M": ("6mo", "1d"),
-    "1Y": ("1y", "1d"),
-    "2Y": ("2y", "1wk"),
-    "3Y": ("3y", "1wk"),
-    "5Y": ("5y", "1wk")
-}
+    # Map display tab → yfinance parameters
+    period_map = {
+        "1D": ("1d", "5m"),
+        "3M": ("3mo", "1d"),
+        "6M": ("6mo", "1d"),
+        "1Y": ("1y", "1d"),
+        "2Y": ("2y", "1wk"),
+        "3Y": ("3y", "1wk"),
+        "5Y": ("5y", "1wk")
+    }
 
-# Store selected period in session state
-if "selected_period" not in st.session_state:
-    st.session_state["selected_period"] = "1Y"
+    # Store selected period in session state
+    if "selected_period" not in st.session_state:
+        st.session_state["selected_period"] = "1Y"
 
-for label, tab in zip(tab_labels, tabs):
-    with tab:
-        if st.button(f"Select {label}", key=f"tab_{label}"):
-            st.session_state["selected_period"] = label
-            st.experimental_rerun()
+    for label, tab in zip(tab_labels, tabs):
+        with tab:
+            if st.button(f"Select {label}", key=f"tab_{label}"):
+                st.session_state["selected_period"] = label
+                st.experimental_rerun()
 
-selected_label = st.session_state["selected_period"]
-period, interval = period_map[selected_label]
+    selected_label = st.session_state["selected_period"]
+    period, interval = period_map[selected_label]
     # Map tab selection to Yahoo Finance period and interval
     duration_map = {
         "1D": ("1d", "5m"),
