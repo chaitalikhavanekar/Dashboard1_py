@@ -369,19 +369,12 @@ interests = st.sidebar.multiselect(
 )
 
 if st.sidebar.button("Save interests"):
-    st.session_state["interests"] = interests    "Pick interests",
-    options=options_list,
-    default=saved_prefs
+    st.session_state["interests"] = interests
 
 # ✅ FIXED INDENTATION HERE
-if st.sidebar.button("Save interests"):
-    st.session_state["prefs"] = prefs
-st.sidebar.markdown("---")
-st.sidebar.markdown("Advanced: put keys in .env or Streamlit secrets (NEWSAPI_KEY, DATA_GOV_API_KEY, CPI_RESOURCE_ID, IIP_RESOURCE_ID, GDP_RESOURCE_ID)")
 if st.sidebar.button("Refresh now"):
-    requests_cache.clear()
+    requests.cache_clear()
     st.experimental_rerun()
-
 # parse auto_ref seconds
 interval_map = {"Off":0,"30s":30,"1m":60,"5m":300}
 interval_seconds = interval_map.get(auto_ref, 0)
