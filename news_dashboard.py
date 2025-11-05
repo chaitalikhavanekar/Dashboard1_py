@@ -762,15 +762,28 @@ try:
             mode="lines", name="MA50 (Medium)",
             line=dict(width=1.5, dash="dot", color=PALETTE["warn"])
         )
-    if show_ma200:
-        fig_ma.add_scatter(
-            x=sh["Date"], y=sh["MA200"],
-            mode="lines", name="MA200 (Long)",
-            line=dict(width=1.8, dash="dot", color=PALETTE["neg"])
-        )
+if show_ma20:
+    fig_ma.add_scatter(
+        x=sh["Date"], y=sh["MA20"],
+        mode="lines", name="MA20 (Short)",
+        line=dict(width=1.5, dash="dot", color=PALETTE["pos"])
+    )
 
-    st.plotly_chart(fig_ma, use_container_width=True)
+if show_ma50:
+    fig_ma.add_scatter(
+        x=sh["Date"], y=sh["MA50"],
+        mode="lines", name="MA50 (Medium)",
+        line=dict(width=1.5, dash="dot", color=PALETTE["warn"])
+    )
 
+if show_ma200:
+    fig_ma.add_scatter(
+        x=sh["Date"], y=sh["MA200"],
+        mode="lines", name="MA200 (Long)",
+        line=dict(width=1.8, dash="dot", color=PALETTE["neg"])
+    )
+
+st.plotly_chart(fig_ma, use_container_width=True)
 except Exception as e:
     st.warning(f"Moving average overlay unavailable: {e}")
 
