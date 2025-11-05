@@ -619,6 +619,29 @@ if stock_input:
     with st.spinner(f"Fetching {stock_input} ..."):
         sh = fetch_stock_history(stock_input, period="1y")
         sa = fetch_stock_actions(stock_input)
+# --- Clean and standardize stock data (works for all companies) ---
+    if not sh.empty:
+        sh = sh.reset_index()
+
+        # Flatten multi-level columns like ('Close', 'RELIANCE.NS')
+        if isinstance(sh.columns, pd.MultiIndex):
+            sh.columns = [col[0] if isinstance(col, tuple) else col for col in sh.columns]
+
+        # Rename columns for consistency across all symbols
+        sh.rename(columns={
+            "Date": "Date",
+            "Close": "close",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Volume": "volume"
+        }, inplace=True, errors="ignore")
+
+        # Drop missing values
+        sh.dropna(inplace=True)
+
+        # Sort by date (important for moving averages)
+        sh = sh.sort_values("Date")
     if sh.empty:
         st.warning("No history for this symbol. Check symbol suffix (.NS for NSE).")
     else:
