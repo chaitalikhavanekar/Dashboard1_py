@@ -345,15 +345,21 @@ auto_ref = st.sidebar.selectbox("Auto-refresh", options=["Off","30s","1m","5m"],
 stock_input = st.sidebar.text_input("Single stock (one symbol)", value="RELIANCE.NS")
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Interests (for personalization)**")
-options_list = ["RBI","infrastructure","startups","banks","inflation","GDP","employment","policy","stock"]
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Interests (for personalization)**")
+
+options_list = ["RBI", "infrastructure", "startups", "banks", "inflation", "GDP", "employment", "policy", "stock"]
 saved_prefs = [p for p in st.session_state.get("prefs", []) if p in options_list]
+
 prefs = st.sidebar.multiselect(
     "Pick interests",
     options=options_list,
     default=saved_prefs
-)if st.sidebar.button("Save interests"):
-    st.session_state["prefs"] = prefs
+)
 
+# ✅ FIXED INDENTATION HERE
+if st.sidebar.button("Save interests"):
+    st.session_state["prefs"] = prefs
 st.sidebar.markdown("---")
 st.sidebar.markdown("Advanced: put keys in .env or Streamlit secrets (NEWSAPI_KEY, DATA_GOV_API_KEY, CPI_RESOURCE_ID, IIP_RESOURCE_ID, GDP_RESOURCE_ID)")
 if st.sidebar.button("Refresh now"):
