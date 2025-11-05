@@ -645,7 +645,8 @@ if sh is not None and not sh.empty:
         )
         fig.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
     st.plotly_chart(fig, use_container_width=True)
-
+except Exception as e:
+    st.warning(f"Chart rendering failed for {stock_input}: {e}")
 # --- Moving Averages Overlay ---
 st.markdown("### 📊 Moving Averages (Trend Analysis)")
 
