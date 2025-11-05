@@ -615,7 +615,14 @@ if stock_input:
     else:
         latest = sh["close"].iloc[-1]
         prev = sh["close"].iloc[-2] if len(sh) > 1 else latest
-        pct = (latest - prev)/prev*100 if prev != 0 else 0.0
+      # --- Safe percentage change calculation ---
+try:
+    if prev is None or pd.isna(prev) or prev == 0:
+        pct = 0.0
+    else:
+        pct = ((latest - prev) / prev) * 100
+except Exception:
+    pct = 0.0
         st.metric(f"{stock_input} Latest", f"{latest:,.2f}", f"{pct:+.2f}%")
         fig = px.line(sh, x="Date", y="close", title=f"{stock_input} — 1 year")
         fig.update_traces(line=dict(color=PALETTE["pos"] if pct>=0 else PALETTE["neg"], width=2))
