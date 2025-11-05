@@ -624,9 +624,13 @@ try:
 except Exception:
     pct = 0.0
 
-# Stock performance metric (correct indentation)
-st.metric(f"{stock_input} Latest", f"{latest:,.2f}", f"{pct:+.2f}%")
-
+# --- Stock performance metric (safe casting) ---
+try:
+    latest_val = float(latest) if pd.notna(latest) else 0.0
+    pct_val = float(pct) if pd.notna(pct) else 0.0
+    st.metric(f"{stock_input} Latest", f"{latest_val:,.2f}", f"{pct_val:+.2f}%")
+except Exception as e:
+    st.warning(f"Could not display metric for {stock_input}: {e}")
 fig = px.line(sh, x="Date", y="close", title=f"{stock_input} — 1 year")
 fig.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
 st.plotly_chart(fig, use_container_width=True)
