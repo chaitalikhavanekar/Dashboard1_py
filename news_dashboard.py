@@ -345,8 +345,13 @@ auto_ref = st.sidebar.selectbox("Auto-refresh", options=["Off","30s","1m","5m"],
 stock_input = st.sidebar.text_input("Single stock (one symbol)", value="RELIANCE.NS")
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Interests (for personalization)**")
-prefs = st.sidebar.multiselect("Pick interests", options=["RBI","infrastructure","startups","banks","inflation","GDP","employment","policy","stock"], default=st.session_state["prefs"])
-if st.sidebar.button("Save interests"):
+options_list = ["RBI","infrastructure","startups","banks","inflation","GDP","employment","policy","stock"]
+saved_prefs = [p for p in st.session_state.get("prefs", []) if p in options_list]
+prefs = st.sidebar.multiselect(
+    "Pick interests",
+    options=options_list,
+    default=saved_prefs
+)if st.sidebar.button("Save interests"):
     st.session_state["prefs"] = prefs
 
 st.sidebar.markdown("---")
