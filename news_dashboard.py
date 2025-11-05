@@ -704,9 +704,9 @@ show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
 show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
 
     # Calculate moving averages
-    sh["MA20"] = sh["close"].rolling(window=20).mean()
-    sh["MA50"] = sh["close"].rolling(window=50).mean()
-    sh["MA200"] = sh["close"].rolling(window=200).mean()
+sh["MA20"] = sh["close"].rolling(window=20).mean()
+sh["MA50"] = sh["close"].rolling(window=50).mean()
+sh["MA200"] = sh["close"].rolling(window=200).mean()
 
     # Create chart with moving averages
     fig_ma = px.line(
