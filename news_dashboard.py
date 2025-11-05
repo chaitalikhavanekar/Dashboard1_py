@@ -719,65 +719,60 @@ fig_ma = px.line(
 
 # Update base line color
 fig_ma.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
-    # Add optional moving average lines
+# --- Moving Averages Overlay ---
+try:
+    st.markdown("### 📊 Moving Averages (Trend Analysis)")
+
+    # Checkbox controls
+    show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
+    show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
+    show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
+
+    # Calculate moving averages
+    sh["MA20"] = sh["close"].rolling(window=20).mean()
+    sh["MA50"] = sh["close"].rolling(window=50).mean()
+    sh["MA200"] = sh["close"].rolling(window=200).mean()
+
+    # Create chart with moving averages
+    fig_ma = px.line(
+        sh,
+        x="Date",
+        y="close",
+        title=f"{stock_input.upper()} Trend Overview (with Moving Averages)",
+        labels={"close": "Price (₹)", "Date": "Date"},
+    )
+
+    # Update base line color
+    fig_ma.update_traces(
+        line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2)
+    )
+
+    # Add optional MA lines
     if show_ma20:
         fig_ma.add_scatter(
             x=sh["Date"], y=sh["MA20"],
             mode="lines", name="MA20 (Short)",
             line=dict(width=1.8, dash="dot", color=PALETTE["teal"])
         )
+
     if show_ma50:
         fig_ma.add_scatter(
-# --- Moving Averages Overlay ---
-try:
-    st.markdown("### 📊 Moving Averages (Trend Analysis)")
+            x=sh["Date"], y=sh["MA50"],
+            mode="lines", name="MA50 (Medium)",
+            line=dict(width=1.8, dash="dot", color=PALETTE["mid"])
+        )
 
-    # Checkbox controls
-show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
-show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
-show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
+    if show_ma200:
+        fig_ma.add_scatter(
+            x=sh["Date"], y=sh["MA200"],
+            mode="lines", name="MA200 (Long)",
+            line=dict(width=1.8, dash="dot", color=PALETTE["neg"])
+        )
 
-# Calculate moving averages
-sh["MA20"] = sh["close"].rolling(window=20).mean()
-sh["MA50"] = sh["close"].rolling(window=50).mean()
-sh["MA200"] = sh["close"].rolling(window=200).mean()
+    st.plotly_chart(fig_ma, use_container_width=True)
 
-# Create chart with moving averages
-fig_ma = px.line(
-    sh,
-    x="Date",
-    y="close",
-    title=f"{stock_input.upper()} Trend Overview (with Moving Averages)",
-    labels={"close": "Price (₹)", "Date": "Date"},
-)
-
-# Update base line color
-fig_ma.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
-
-# Add optional MA lines
-if show_ma20:
-    fig_ma.add_scatter(
-        x=sh["Date"], y=sh["MA20"],
-        mode="lines", name="MA20 (Short)",
-        line=dict(width=1.8, dash="dot", color=PALETTE["teal"])
-    )
-
-if show_ma50:
-    fig_ma.add_scatter(
-        x=sh["Date"], y=sh["MA50"],
-        mode="lines", name="MA50 (Medium)",
-        line=dict(width=1.8, dash="dot", color=PALETTE["mid"])
-    )
-
-if show_ma200:
-    fig_ma.add_scatter(
-        x=sh["Date"], y=sh["MA200"],
-        mode="lines", name="MA200 (Long)",
-        line=dict(width=1.8, dash="dot", color=PALETTE["neg"])
-    )
-
-st.plotly_chart(fig_ma, use_container_width=True)except Exception as e:
-    st.warning(f"Moving average overlay unavailable: {e}")
+except Exception as e:
+    st.warning(f"Moving average overlay unavailable: {e}")    st.warning(f"Moving average overlay unavailable: {e}")
 
 else:
     st.warning(
