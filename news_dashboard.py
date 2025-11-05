@@ -622,39 +622,45 @@ try:
     else:
         pct = ((latest - prev) / prev) * 100
 except Exception:
-    pct = 0.0# 
+    pct = 0.0
+
 # Stock performance metric (correct indentation)
 st.metric(f"{stock_input} Latest", f"{latest:,.2f}", f"{pct:+.2f}%")
 
 fig = px.line(sh, x="Date", y="close", title=f"{stock_input} — 1 year")
 fig.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
 st.plotly_chart(fig, use_container_width=True)
-        # corporate actions
-        st.markdown("### Corporate actions")
-        try:
-            divs = sa.get("dividends")
-            splits = sa.get("splits")
-            if not getattr(divs, "empty", True):
-                ddf = divs.reset_index().rename(columns={"Date":"Date", 0:"Dividend"}) if isinstance(divs, pd.Series) else divs
-                st.dataframe(ddf.tail(8))
-            else:
-                st.info("No dividends found (yfinance).")
-            if not getattr(splits, "empty", True):
-                sdf = splits.reset_index().rename(columns={"Date":"Date", 0:"Split"}) if isinstance(splits, pd.Series) else splits
-                st.dataframe(sdf.tail(8))
-            else:
-                st.info("No splits found (yfinance).")
-        except Exception as e:
-            st.error(f"Corporate actions error: {e}")
-        # related news
-        st.markdown("### Related news (search fallback)")
-        related = fetch_news(f"{search_query} {stock_input}", n=6)
-        if related:
-            for r in related:
-                st.markdown(f"- <a href='{r.get('url')}' target='_blank'>{r.get('title')}</a>", unsafe_allow_html=True)
-        else:
-            st.info("No related news found.")
 
+# Corporate actions
+st.markdown("### Corporate actions")
+
+try:
+    divs = sa.get("dividends")
+    splits = sa.get("splits")
+
+    if not getattr(divs, "empty", True):
+        ddf = divs.reset_index().rename(columns={"Date": "Date", 0: "Dividend"}) if isinstance(divs, pd.Series) else divs
+        st.dataframe(ddf.tail(8))
+    else:
+        st.info("No dividends found (yfinance).")
+
+    if not getattr(splits, "empty", True):
+        sdf = splits.reset_index().rename(columns={"Date": "Date", 0: "Split"}) if isinstance(splits, pd.Series) else splits
+        st.dataframe(sdf.tail(8))
+    else:
+        st.info("No splits found (yfinance).")
+
+except Exception as e:
+    st.error(f"Corporate actions error: {e}")
+
+# Related news
+st.markdown("### Related news (search fallback)")
+related = fetch_news(f"{search_query} {stock_input}", n=6)
+if related:
+    for r in related:
+        st.markdown(f"- <a href='{r.get('url')}' target='_blank'>{r.get('title')}</a>", unsafe_allow_html=True)
+else:
+    st.info("No related news found.")
 # ---------- Footer & debug ----------
 st.markdown("---")
 st.markdown(f"<div style='color:{PALETTE['teal']}'>Last update: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</div>", unsafe_allow_html=True)
