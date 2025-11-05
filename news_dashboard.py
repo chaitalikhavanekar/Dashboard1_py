@@ -631,11 +631,24 @@ try:
     st.metric(f"{stock_input} Latest", f"{latest_val:,.2f}", f"{pct_val:+.2f}%")
 except Exception as e:
     st.warning(f"Could not display metric for {stock_input}: {e}")
-fig = px.line(sh, x="Date", y="close", title=f"{stock_input} — 1 year")
-fig.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
-st.plotly_chart(fig, use_container_width=True)
-
-# Corporate actions
+# --- Stock chart (safe rendering) ---
+if sh is not None and not sh.empty:
+    if "Date" not in sh.columns:
+        sh = sh.reset_index()  # Ensure Date column exists for Plotly
+    try:
+        fig = px.line(
+            sh,
+            x="Date",
+            y="close",
+            title=f"{stock_input} — 1 year",
+            labels={"close": "Price", "Date": "Date"},
+        )
+        fig.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Chart rendering failed for {stock_input}: {e}")
+else:
+    st.warning(f"No historical data found for {stock_input}. Check symbol (e.g., RELIANCE.NS for NSE).")# Corporate actions
 st.markdown("### Corporate actions")
 
 try:
