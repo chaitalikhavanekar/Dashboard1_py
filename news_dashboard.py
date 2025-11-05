@@ -372,7 +372,6 @@ if st.sidebar.button("Save interests"):
     st.session_state["interests"] = interests    "Pick interests",
     options=options_list,
     default=saved_prefs
-)
 
 # ✅ FIXED INDENTATION HERE
 if st.sidebar.button("Save interests"):
