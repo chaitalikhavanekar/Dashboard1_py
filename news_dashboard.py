@@ -605,7 +605,8 @@ if SMTP_HOST and SMTP_PORT and SMTP_USER and SMTP_PASS:
         msg["Subject"] = "Daily Economic Brief"
         msg["From"] = SMTP_USER
         msg["To"] = [a.strip() for a in to_addr.split(",") if a.strip()]
-        msg.set_content(nl_area)        try:
+        msg.set_content(nl_area)   
+try:
             context = ssl.create_default_context()
             with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=context) as smtp:
                 smtp.login(SMTP_USER, SMTP_PASS)
