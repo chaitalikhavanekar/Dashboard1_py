@@ -749,21 +749,38 @@ if "macro_panel" not in st.session_state:
 
 # --- Helper: show press releases and news with sentiment for a keyword ---
 def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
-    st.markdown("### 📰 Press releases / Latest official data")
+    """
+    Show press releases (official) and related news (sentiment-labeled)
+    for a given keyword. Accepts an optional data.gov resource_id or an
+    uploaded dataframe (uploaded_df) as fallback.
+    """
+    st.markdown("### ⚖️ Press releases / Latest official data")
+
     # try data.gov resource first
     if resource_id and DATA_GOV_API_KEY:
-        j = fetch_data_gov_resource(resource_id, limit=6)
+        try:
+            j = fetch_data_gov_resource(resource_id, limit=6)
+        except Exception as e:
+            st.warning(f"⚠️ Unable to fetch data.gov resource: {e}")
+            j = None
+
         if j and j.get("records"):
             for rec in j["records"][:6]:
-                st.markdown(f"**{rec.get('title') or rec.get('indicator') or rec.get('month') or 'Release'}** - {list(rec.items())[:1]}")
+                title = rec.get("title") or rec.get("indicator") or rec.get("month") or "Release"
+                st.markdown(f"- **{title}** · {list(rec.items())[:1]}")
         else:
             st.info("No official recent releases found (data.gov).")
+
+    # fallback: user uploaded dataframe (CSV/XLSX/PDF processed elsewhere)
     elif uploaded_df is not None:
-        st.dataframe(uploaded_df.head(6))
+        try:
+            st.dataframe(uploaded_df.head(6))
+        except Exception as e:
+            st.warning(f"⚠️ Error displaying uploaded release data: {e}")
     else:
         st.info("No official release data available. Upload CSV/PDF as fallback.")
 
-# --- NEWS SECTION ---
+    # --- NEWS SECTION ---
     st.markdown("#### 🗞️ Related news (sentiment-labeled)")
 
     try:
@@ -775,7 +792,7 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
         for a in related:
             t = a.get("title") or a.get("headline") or ""
             s = a.get("summary") or a.get("description") or ""
-            label, score = sentiment_label(t + " " + s)
+            label, score = sentiment_label((t or "") + " " + (s or ""))
             color = PALETTE["pos"] if label == "positive" else (
                 PALETTE["neg"] if label == "negative" else PALETTE["neu"]
             )
@@ -791,30 +808,8 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
 
     except Exception as e:
         st.warning(f"⚠️ Unable to fetch or display related news: {e}")
-        if not related:
-            st.info("No news found.")
-            return   # ✅ This line should be exactly here (inside the function, 8 spaces from left)
-
-    for a in related:
-        t = a.get("title") or a.get("headline") or ""
-        s = a.get("summary") or a.get("description") or ""
-        label, score = sentiment_label(t + " " + s)
-        color = PALETTE["pos"] if label == "positive" else (
-            PALETTE["neg"] if label == "negative" else PALETTE["neu"]
-        )
-
-        st.markdown(
-            f"📰 **[{t}]({a.get('url')})** — "
-            f"<span style='color:{color}; font-weight:700'>{label.upper()}</span> ({score:+.2f})",
-            unsafe_allow_html=True,
-        )
-
-        if s and len(s) < 300:
-            st.caption(s)
-
-except Exception as e:
-    st.warning(f"⚠️ Unable to fetch or display related news: {e}")
-    
+        return
+        
 # --- Detailed dashboard panel renderer (shows four sections in tabs / collapsible) ---
 def render_macro_detail():
     panel = st.session_state.get("macro_panel")
