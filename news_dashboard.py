@@ -764,33 +764,33 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
         st.info("No official release data available. Upload CSV/PDF as fallback.")
 
     # --- NEWS SECTION ---
-    st.markdown("### 📰 Related news (sentiment-labeled)")
-    try:
-        related = fetch_news(keyword, n=nnews)
-        if not related:
-            st.info("No news found.")
-            return
+st.markdown("#### 🗞️ Related news (sentiment-labeled)")
+try:
+    related = fetch_news(keyword, n=nnews)
+    if not related:
+        st.info("No news found.")
+        return
 
-for a in related:
-    t = a.get("title") or a.get("headline") or ""
-    s = a.get("summary") or a.get("description") or ""
-    label, score = sentiment_label(t + " " + s)
-    color = PALETTE["pos"] if label == "positive" else (PALETTE["neg"] if label == "negative" else PALETTE["neu"])
+    for a in related:
+        t = a.get("title") or a.get("headline") or ""
+        s = a.get("summary") or a.get("description") or ""
+        label, score = sentiment_label(t + " " + s)
+        color = PALETTE["pos"] if label == "positive" else (
+            PALETTE["neg"] if label == "negative" else PALETTE["neu"]
+        )
+
+        st.markdown(
+            f"📰 **[{t}]({a.get('url')})** — "
+            f"<span style='color:{color}; font-weight:700'>{label.upper()}</span> ({score:+.2f})",
+            unsafe_allow_html=True,
+        )
+
+        if s and len(s) < 300:
+            st.caption(s)
+
+except Exception as e:
+    st.warning(f"⚠️ Unable to fetch or display related news: {e}")
     
-    # Clean news display: only title, sentiment, and optional summary
-    st.markdown(
-        f"📰 **[{t}]({a.get('url')})** — "
-        f"<span style='color:{color}; font-weight:700'>{label.upper()}</span> ({score:+.2f})",
-        unsafe_allow_html=True
-    )
-    
-    # Show summary (if available), no HTML junk
-    if s and len(s) < 300:
-        st.caption(s)
-        
-    except Exception as e:
-        st.warning(f"News fetch failed: {e}")
-        
 # --- Detailed dashboard panel renderer (shows four sections in tabs / collapsible) ---
 def render_macro_detail():
     panel = st.session_state.get("macro_panel")
