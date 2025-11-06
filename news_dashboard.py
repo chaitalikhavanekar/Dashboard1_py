@@ -42,6 +42,48 @@ import streamlit as st
 # --- Function to fetch fresh news ---
 import requests
 import pandas as pd
+import pandas as pd
+import PyPDF2
+import io
+
+def load_uploaded_df(uploaded_file):
+    """Handles CSV, XLSX, and PDF uploads and returns a dataframe or text."""
+    if uploaded_file is None:
+        return None
+
+    filename = uploaded_file.name.lower()
+
+    # --- CSV File ---
+    if filename.endswith(".csv"):
+        try:
+            return pd.read_csv(uploaded_file)
+        except Exception as e:
+            st.error(f"Error reading CSV: {e}")
+            return None
+
+    # --- Excel File ---
+    elif filename.endswith(".xlsx"):
+        try:
+            return pd.read_excel(uploaded_file)
+        except Exception as e:
+            st.error(f"Error reading Excel: {e}")
+            return None
+
+    # --- PDF File ---
+    elif filename.endswith(".pdf"):
+        try:
+            reader = PyPDF2.PdfReader(uploaded_file)
+            pdf_text = ""
+            for page in reader.pages:
+                pdf_text += page.extract_text() + "\n"
+            return pdf_text
+        except Exception as e:
+            st.error(f"Error reading PDF: {e}")
+            return None
+
+    else:
+        st.warning("Unsupported file format. Please upload CSV, XLSX, or PDF.")
+        return None
 st.markdown("""
     <style>
     .block-container {
