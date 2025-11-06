@@ -639,7 +639,7 @@ iip_val, iip_date = latest_summary_from_df(iip_data_gov or iip_df_up)
 gdp_val, gdp_date = latest_summary_from_df(gdp_data_gov or gdp_df_up)
 
 # --- Overview Cards styled like National Statistics Office ---
-st.markdown("<h3 style='margin-top:20px;'>Key Indicators (Click any to explore full dashboard)</h3>", unsafe_allow_html=True)
+st.markdown("<h3 style='margin-top:15px;'>Key Indicators (Click any to explore full dashboard)</h3>", unsafe_allow_html=True)
 
 cards = [
     {"label": "Index of Industrial Production", "short": "IIP", "icon": "🏭", "key": "iip", "val": iip_val or 4.0, "date": "September 2025"},
