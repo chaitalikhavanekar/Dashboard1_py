@@ -559,69 +559,260 @@ if SMTP_HOST and SMTP_PORT and SMTP_USER and SMTP_PASS:
 else:
     st.info("SMTP not configured. To enable send, set SMTP_* env vars.")
 
-# ---------- MOSPI / Macro micro-charts ----------
+# ---------- INDIA'S ECONOMIC INDICATORS — MAIN PAGE & DETAILED MACRO DASHBOARD ----------
 st.markdown("---")
-st.markdown("## 📈 MOSPI / Macro Indicators (CPI / IIP / GDP) — auto or upload fallback")
-st.markdown("If automatic fetch fails, upload CSV/XLSX with clear date + value columns.")
+st.markdown("<h2>📊 INDIA'S ECONOMIC INDICATORS — MAIN PAGE</h2>", unsafe_allow_html=True)
+st.markdown("<div class='small-muted'>Click any card to open the detailed macro dashboard (CPI, IIP, GDP, Unemployment)</div>", unsafe_allow_html=True)
+st.markdown("")
 
-def load_macro(kind, resource_id):
-    uploaded = st.file_uploader(f"Upload {kind.upper()} CSV/XLSX (fallback)", type=["csv","xlsx"], key=f"up_{kind}")
-    df = None; source = None
-    if resource_id and DATA_GOV_API_KEY:
-        j = fetch_data_gov_resource(resource_id, limit=2000)
+# --- Upload fallbacks (keep existing keys to avoid collisions) ---
+cpi_upload = st.file_uploader("Upload CPI CSV/XLSX (fallback)", type=["csv","xlsx"], key="up_cpi")
+iip_upload = st.file_uploader("Upload IIP CSV/XLSX (fallback)", type=["csv","xlsx"], key="up_iip")
+gdp_upload = st.file_uploader("Upload GDP CSV/XLSX (fallback)", type=["csv","xlsx"], key="up_gdp")
+
+def _load_uploaded_df(uploaded):
+    if not uploaded:
+        return None
+    try:
+        if uploaded.name.lower().endswith(".csv"):
+            return pd.read_csv(uploaded)
+        else:
+            return pd.read_excel(uploaded)
+    except Exception as e:
+        log(f"upload parse error: {e}")
+        return None
+
+cpi_df_up = _load_uploaded_df(cpi_upload)
+iip_df_up = _load_uploaded_df(iip_upload)
+gdp_df_up = _load_uploaded_df(gdp_upload)
+
+# --- Fetch latest small-summaries from data.gov if available (safe) ---
+cpi_data_gov = None
+iip_data_gov = None
+gdp_data_gov = None
+try:
+    if CPI_RESOURCE_ID and DATA_GOV_API_KEY:
+        j = fetch_data_gov_resource(CPI_RESOURCE_ID, limit=10)
         if j and j.get("records"):
-            df = pd.DataFrame(j["records"])
-            source = f"data.gov resource {resource_id}"
-    if df is None and uploaded:
-        try:
-            if uploaded.name.lower().endswith(".csv"):
-                df = pd.read_csv(uploaded)
-            else:
-                df = pd.read_excel(uploaded)
-            source = f"uploaded {uploaded.name}"
-        except Exception as e:
-            st.error(f"Upload parse error for {kind}: {e}")
-            return None, None
-    return df, source
+            cpi_data_gov = pd.DataFrame(j["records"])
+    if IIP_RESOURCE_ID and DATA_GOV_API_KEY:
+        j = fetch_data_gov_resource(IIP_RESOURCE_ID, limit=10)
+        if j and j.get("records"):
+            iip_data_gov = pd.DataFrame(j["records"])
+    if GDP_RESOURCE_ID and DATA_GOV_API_KEY:
+        j = fetch_data_gov_resource(GDP_RESOURCE_ID, limit=10)
+        if j and j.get("records"):
+            gdp_data_gov = pd.DataFrame(j["records"])
+except Exception as e:
+    log(f"macro fetch error: {e}")
 
-cpi_df, cpi_src = load_macro("cpi", CPI_RESOURCE_ID)
-iip_df, iip_src = load_macro("iip", IIP_RESOURCE_ID)
-gdp_df, gdp_src = load_macro("gdp", GDP_RESOURCE_ID)
+# --- Small helper: get latest numeric summary from df-like object ---
+def latest_summary_from_df(df, date_cols=None, value_cols=None):
+    if df is None or df.empty:
+        return None, None
+    try:
+        # try to auto-detect date and value columns
+        cols = df.columns.tolist()
+        date_col = None
+        val_col = None
+        for c in cols:
+            if "date" in c.lower() or "month" in c.lower() or "quarter" in c.lower():
+                date_col = c; break
+        for c in cols:
+            if any(x in c.lower() for x in ["value","index","cpi","gdp","iip","amount","growth","percent","%","rate"]):
+                val_col = c; break
+        if date_col is None:
+            date_col = cols[0]
+        if val_col is None and len(cols) > 1:
+            val_col = cols[1]
+        tmp = df.copy()
+        tmp[date_col] = pd.to_datetime(tmp[date_col], errors="coerce")
+        tmp = tmp.dropna(subset=[date_col])
+        latest_row = tmp.sort_values(date_col).iloc[-1]
+        return latest_row[val_col], latest_row[date_col]
+    except Exception as e:
+        log(f"latest_summary error: {e}")
+        return None, None
 
-def auto_plot(df, label):
-    if df is None:
-        st.info(f"No {label} data available to auto-plot.")
-        return
-    cols = df.columns.tolist()
-    date_col = next((c for c in cols if "date" in c.lower() or "month" in c.lower()), None)
-    val_col = next((c for c in cols if any(x in c.lower() for x in ["value","index","cpi","iip","gdp","amount","price"])), None)
-    if date_col and val_col:
-        try:
-            tmp = df[[date_col, val_col]].copy()
-            tmp[date_col] = pd.to_datetime(tmp[date_col], errors="coerce")
-            tmp = tmp.dropna(subset=[date_col, val_col]).sort_values(date_col)
-            fig = px.line(tmp, x=date_col, y=val_col, title=f"{label} — {val_col}")
-            st.plotly_chart(fig, use_container_width=True)
-        except Exception as e:
-            st.error(f"Plot error {label}: {e}")
+cpi_val, cpi_date = latest_summary_from_df(cpi_data_gov or cpi_df_up)
+iip_val, iip_date = latest_summary_from_df(iip_data_gov or iip_df_up)
+gdp_val, gdp_date = latest_summary_from_df(gdp_data_gov or gdp_df_up)
+
+# --- Overview Cards (click to open detailed macro dashboard) ---
+cards = [
+    ("IIP (General)", "iip", iip_val, cpi_date or iip_date),
+    ("Inflation (CPI)", "cpi", cpi_val, cpi_date),
+    ("GDP Growth", "gdp", gdp_val, gdp_date),
+    ("Unemployment", "unemp", None, None)
+]
+
+cols = st.columns(4, gap="large")
+for col, (label, key, val, d) in zip(cols, cards):
+    with col:
+        # style card
+        vtext = f"{val:.2f}" if (val is not None and isinstance(val, (int,float,np.number))) else "N/A"
+        date_text = f"{pd.to_datetime(d).strftime('%b %Y')}" if d is not None and not pd.isna(d) else ""
+        if st.button(f"Open {label}", key=f"open_{key}"):
+            st.session_state["macro_panel"] = key
+        st.markdown(f"""
+            <div class='card' style='text-align:center; padding:18px;'>
+              <div style='font-weight:700; font-size:18px'>{label}</div>
+              <div style='font-size:26px; color:{PALETTE['navy']}; margin-top:8px'>{vtext}</div>
+              <div class='small-muted' style='margin-top:6px'>{date_text}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+st.markdown("---")
+
+# initialize navigation state
+if "macro_panel" not in st.session_state:
+    st.session_state["macro_panel"] = None
+
+# --- Helper: show press releases and news with sentiment for a keyword ---
+def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
+    st.markdown("#### 🔔 Press releases / Latest official data")
+    # try data.gov resource first
+    if resource_id and DATA_GOV_API_KEY:
+        j = fetch_data_gov_resource(resource_id, limit=6)
+        if j and j.get("records"):
+            for rec in j["records"][:6]:
+                st.markdown(f"- **{rec.get('title') or rec.get('indicator') or rec.get('month') or 'Release'}** · {list(rec.items())[:1]}")
+        else:
+            st.info("No official recent releases found (data.gov).")
+    elif uploaded_df is not None:
+        st.dataframe((uploaded_df.head(6)))
     else:
-        st.dataframe(df.head())
-        st.info("Could not auto-detect date/value columns. Upload CSV with 'date' and 'value' naming for auto-plot.")
+        st.info("No official release data available. Upload CSV/XLSX as fallback.")
 
-mcols = st.columns(3)
-with mcols[0]:
-    st.markdown("### CPI")
-    if cpi_src: st.caption(cpi_src)
-    auto_plot(cpi_df, "CPI")
-with mcols[1]:
-    st.markdown("### IIP")
-    if iip_src: st.caption(iip_src)
-    auto_plot(iip_df, "IIP")
-with mcols[2]:
-    st.markdown("### GDP")
-    if gdp_src: st.caption(gdp_src)
-    auto_plot(gdp_df, "GDP")
+    st.markdown("#### 📰 Related news (sentiment-labeled)")
+    try:
+        related = fetch_news(keyword, n=nnews)
+        if not related:
+            st.info("No news found.")
+            return
+        for a in related:
+            t = a.get("title") or a.get("headline") or ""
+            s = a.get("summary") or a.get("description") or ""
+            label, score = sentiment_label(t + " " + s)
+            color = PALETTE["pos"] if label == "positive" else (PALETTE["neg"] if label == "negative" else PALETTE["neu"])
+            st.markdown(f"- **[{t}]({a.get('url')})** — <span style='color:{color}; font-weight:700'>{label.upper()}</span> ({score:+.2f})", unsafe_allow_html=True)
+            if s:
+                st.caption(s)
+    except Exception as e:
+        st.warning(f"News fetch error: {e}")
 
+# --- Detailed dashboard panel renderer (shows four sections in tabs / collapsible) ---
+def render_macro_detail():
+    panel = st.session_state.get("macro_panel")
+    if not panel:
+        return
+
+    # top breadcrumb + back button
+    st.button("← Back to Overview", key="back_macro", on_click=lambda: st.session_state.update({"macro_panel": None}))
+    st.markdown(f"<h3 style='margin-top:6px'>Detailed macro dashboard — {panel.upper()}</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='small-muted'>Data-driven visualizations, press releases and sentiment-labeled related news</div>", unsafe_allow_html=True)
+    st.markdown("")
+
+    # Single page with four accordion sections: GDP, CPI, IIP, Unemployment
+    sections = ["gdp", "cpi", "iip", "unemp"]
+    for sec in sections:
+        open_key = f"open_section_{sec}"
+        with st.expander(sec.upper(), expanded=(sec == panel)):
+            # left: visualizations (map + donut + line/bar)
+            left, right = st.columns([2,1])
+            with left:
+                st.markdown(f"### {sec.upper()} — Visualizations")
+                # 1) Map (choropleth) — try to plot if we have state-level values
+                df_try = None
+                if sec == "cpi":
+                    df_try = cpi_data_gov or cpi_df_up
+                elif sec == "iip":
+                    df_try = iip_data_gov or iip_df_up
+                elif sec == "gdp":
+                    df_try = gdp_data_gov or gdp_df_up
+                else:
+                    df_try = None
+
+                # Map: if df has state column and value column
+                plotted = False
+                if df_try is not None and not df_try.empty:
+                    cols = df_try.columns.tolist()
+                    state_col = next((c for c in cols if "state" in c.lower() or "region" in c.lower()), None)
+                    value_col = next((c for c in cols if any(x in c.lower() for x in ["value","index","amount","gdp","cpi","iip","growth","percent","%","rate"])), None)
+                    date_col = next((c for c in cols if "date" in c.lower() or "month" in c.lower() or "year" in c.lower() or "quarter" in c.lower()), None)
+                    if state_col and value_col:
+                        try:
+                            tmp = df_try[[state_col, value_col]].copy()
+                            tmp = tmp.dropna()
+                            # try a simple bar if geo not available (safe)
+                            fig_map = px.bar(tmp.sort_values(value_col, ascending=False).head(20),
+                                             x=value_col, y=state_col, orientation="h",
+                                             title=f"Top states by {sec.upper()} value")
+                            st.plotly_chart(fig_map, use_container_width=True)
+                            plotted = True
+                        except Exception as e:
+                            log(f"plot map error: {e}")
+                if not plotted:
+                    st.info("Map / state-level plot not auto-detectable. Upload state-level CSV with 'state' + 'value' columns.")
+
+                # Donut / Pie
+                st.markdown("#### Distribution (donut)")
+                try:
+                    if df_try is not None and not df_try.empty:
+                        # quick group by if category present
+                        cat_col = next((c for c in df_try.columns if any(x in c.lower() for x in ["category","group","component","sector","item"])), None)
+                        if cat_col:
+                            ddf = df_try.groupby(cat_col).size().reset_index(name="count").sort_values("count", ascending=False)
+                            fig_pie = px.pie(ddf, names=cat_col, values="count", title="Category distribution")
+                            st.plotly_chart(fig_pie, use_container_width=True)
+                        else:
+                            st.info("No category column detected for donut. Upload with 'category' column.")
+                    else:
+                        st.info("No data for donut.")
+                except Exception as e:
+                    st.warning(f"Donut plot error: {e}")
+
+                # Line / bar trend
+                st.markdown("#### Trend (bar / line)")
+                try:
+                    if df_try is not None and not df_try.empty:
+                        # select date+value if possible
+                        cols = df_try.columns.tolist()
+                        date_col = next((c for c in cols if "date" in c.lower() or "month" in c.lower() or "year" in c.lower()), None)
+                        value_col = next((c for c in cols if any(x in c.lower() for x in ["value","index","gdp","cpi","iip","growth","rate","percent","%"])), None)
+                        if date_col and value_col:
+                            tmp = df_try.copy()
+                            tmp[date_col] = pd.to_datetime(tmp[date_col], errors="coerce")
+                            tmp = tmp.dropna(subset=[date_col, value_col]).sort_values(date_col)
+                            fig_tr = px.line(tmp, x=date_col, y=value_col, title=f"{sec.upper()} trend")
+                            st.plotly_chart(fig_tr, use_container_width=True)
+                        else:
+                            st.info("Could not auto-detect date/value for trend. Upload CSV with 'date' and a numeric 'value' column.")
+                    else:
+                        st.info("No data to plot trend. Upload CSV/XLSX.")
+                except Exception as e:
+                    st.warning(f"Trend plot error: {e}")
+
+            with right:
+                st.markdown(f"### {sec.upper()} — Press releases & News")
+                # press / official data
+                if sec == "cpi":
+                    show_press_and_news("CPI India", resource_id=CPI_RESOURCE_ID, uploaded_df=cpi_df_up)
+                elif sec == "iip":
+                    show_press_and_news("Index of Industrial Production India", resource_id=IIP_RESOURCE_ID, uploaded_df=iip_df_up)
+                elif sec == "gdp":
+                    show_press_and_news("GDP India", resource_id=GDP_RESOURCE_ID, uploaded_df=gdp_df_up)
+                else:
+                    show_press_and_news("unemployment India", resource_id=None, uploaded_df=None)
+
+    # end of sections
+
+# render the macro detail if a panel is open
+try:
+    render_macro_detail()
+except Exception as e:
+    st.error(f"Macro dashboard render error: {e}")
+    
 # ---------- Single-stock deep dive ----------
 st.markdown("---")
 st.markdown("## 💹 Stock — Single Symbol Deep Dive (Chart + Corporate Actions + Related News)")
