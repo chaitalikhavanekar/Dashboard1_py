@@ -578,6 +578,22 @@ nl_text = build_newsletter(top_for_newsletter, macro_bullets)
 nl_area = st.text_area("Newsletter (editable)", value=nl_text, height=220)
 st.download_button("Download newsletter (TXT)", data=nl_area.encode("utf-8"), file_name="economic_brief.txt")
 
+# Upload sections
+cpi_upload = st.file_uploader("Upload CPI CSV/PDF (fallback)")
+iip_upload = st.file_uploader("Upload IIP CSV/PDF (fallback)")
+gdp_upload = st.file_uploader("Upload GDP CSV/PDF (fallback)")
+unemp_upload = st.file_uploader("Upload Unemployment CSV/PDF (fallback)")
+
+# --- Load uploaded files for each indicator (CPI, IIP, GDP, Unemployment) ---
+cpi_df_up = load_uploaded_df(cpi_upload)
+iip_df_up = load_uploaded_df(iip_upload)
+gdp_df_up = load_uploaded_df(gdp_upload)
+
+try:
+    unemp_df_up = load_uploaded_df(unemp_upload)
+except NameError:
+    unemp_df_up = None
+
 # optional send via SMTP
 if SMTP_HOST and SMTP_PORT and SMTP_USER and SMTP_PASS:
     st.markdown("Send newsletter via SMTP")
@@ -589,8 +605,7 @@ if SMTP_HOST and SMTP_PORT and SMTP_USER and SMTP_PASS:
         msg["Subject"] = "Daily Economic Brief"
         msg["From"] = SMTP_USER
         msg["To"] = [a.strip() for a in to_addr.split(",") if a.strip()]
-        msg.set_content(nl_area)
-        try:
+        msg.set_content(nl_area)        try:
             context = ssl.create_default_context()
             with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=context) as smtp:
                 smtp.login(SMTP_USER, SMTP_PASS)
