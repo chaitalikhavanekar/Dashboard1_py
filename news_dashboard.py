@@ -690,37 +690,45 @@ if "macro_panel" not in st.session_state:
 
 # --- Helper: show press releases and news with sentiment for a keyword ---
 def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
-    st.markdown("#### 🔔 Press releases / Latest official data")
+    st.markdown("### ⚠️ Press releases / Latest official data")
     # try data.gov resource first
     if resource_id and DATA_GOV_API_KEY:
         j = fetch_data_gov_resource(resource_id, limit=6)
         if j and j.get("records"):
             for rec in j["records"][:6]:
-                st.markdown(f"- **{rec.get('title') or rec.get('indicator') or rec.get('month') or 'Release'}** · {list(rec.items())[:1]}")
+                st.markdown(f"**{rec.get('title') or rec.get('indicator') or rec.get('month') or 'Release'}**")
         else:
             st.info("No official recent releases found (data.gov).")
     elif uploaded_df is not None:
-        st.dataframe((uploaded_df.head(6)))
+        st.dataframe(uploaded_df.head(6))
     else:
         st.info("No official release data available. Upload CSV/XLSX as fallback.")
 
-    st.markdown("#### 📰 Related news (sentiment-labeled)")
+    # --- NEWS SECTION ---
+    st.markdown("### 📰 Related news (sentiment-labeled)")
     try:
         related = fetch_news(keyword, n=nnews)
         if not related:
             st.info("No news found.")
             return
+
         for a in related:
             t = a.get("title") or a.get("headline") or ""
             s = a.get("summary") or a.get("description") or ""
             label, score = sentiment_label(t + " " + s)
             color = PALETTE["pos"] if label == "positive" else (PALETTE["neg"] if label == "negative" else PALETTE["neu"])
-            st.markdown(f"- **[{t}]({a.get('url')})** — <span style='color:{color}; font-weight:700'>{label.upper()}</span> ({score:+.2f})", unsafe_allow_html=True)
+
+            # Display only the clean headline + sentiment
+            st.markdown(
+                f"- **[{t}]({a.get('url')})** — <span style='color:{color}; font-weight:700'>{label.upper()}</span> ({score:+.2f})",
+                unsafe_allow_html=True
+            )
             if s:
                 st.caption(s)
-    except Exception as e:
-        st.warning(f"News fetch error: {e}")
 
+    except Exception as e:
+        st.warning(f"News fetch failed: {e}")
+        
 # --- Detailed dashboard panel renderer (shows four sections in tabs / collapsible) ---
 def render_macro_detail():
     panel = st.session_state.get("macro_panel")
