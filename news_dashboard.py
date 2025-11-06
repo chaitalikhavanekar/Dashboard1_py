@@ -578,12 +578,14 @@ nl_text = build_newsletter(top_for_newsletter, macro_bullets)
 nl_area = st.text_area("Newsletter (editable)", value=nl_text, height=220)
 st.download_button("Download newsletter (TXT)", data=nl_area.encode("utf-8"), file_name="economic_brief.txt")
 
-# Upload sections
-cpi_upload = st.file_uploader("Upload CPI CSV/PDF (fallback)")
-iip_upload = st.file_uploader("Upload IIP CSV/PDF (fallback)")
-gdp_upload = st.file_uploader("Upload GDP CSV/PDF (fallback)")
-unemp_upload = st.file_uploader("Upload Unemployment CSV/PDF (fallback)")
-
+# --- Admin-Only Upload Section (hidden by default) ---
+with st.expander("⚙️ Admin: Upload New Data Files", expanded=False):
+    st.info("This section is only for admin uploads. Expand when you want to update data or press release files.")
+    cpi_upload = st.file_uploader("Upload CPI CSV/PDF (fallback)", type=["csv", "pdf"])
+    iip_upload = st.file_uploader("Upload IIP CSV/PDF (fallback)", type=["csv", "pdf"])
+    gdp_upload = st.file_uploader("Upload GDP CSV/PDF (fallback)", type=["csv", "pdf"])
+    unemp_upload = st.file_uploader("Upload Unemployment CSV/PDF (fallback)", type=["csv", "pdf"])
+    
 # --- Load uploaded files for each indicator (CPI, IIP, GDP, Unemployment) ---
 cpi_df_up = load_uploaded_df(cpi_upload)
 iip_df_up = load_uploaded_df(iip_upload)
