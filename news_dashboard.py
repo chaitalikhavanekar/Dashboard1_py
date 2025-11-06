@@ -765,11 +765,12 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
 
     # --- NEWS SECTION ---
 st.markdown("#### 🗞️ Related news (sentiment-labeled)")
+
 try:
     related = fetch_news(keyword, n=nnews)
     if not related:
         st.info("No news found.")
-        return
+        return   # ✅ This line should be exactly here (inside the function, 8 spaces from left)
 
     for a in related:
         t = a.get("title") or a.get("headline") or ""
