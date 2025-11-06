@@ -750,13 +750,21 @@ if "macro_panel" not in st.session_state:
 # --- Helper: show press releases and news with sentiment for a keyword ---
 def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
     st.markdown("### 📰 Press releases / Latest official data")
-    ...
+    # try data.gov resource first
+    if resource_id and DATA_GOV_API_KEY:
+        j = fetch_data_gov_resource(resource_id, limit=6)
+        if j and j.get("records"):
+            for rec in j["records"][:6]:
+                st.markdown(f"**{rec.get('title') or rec.get('indicator') or rec.get('month') or 'Release'}** - {list(rec.items())[:1]}")
+        else:
+            st.info("No official recent releases found (data.gov).")
+    elif uploaded_df is not None:
+        st.dataframe(uploaded_df.head(6))
     else:
         st.info("No official release data available. Upload CSV/PDF as fallback.")
 
     # --- NEWS SECTION ---
     st.markdown("#### 🗞️ Related news (sentiment-labeled)")
-
     try:
         related = fetch_news(keyword, n=nnews)
         if not related:
