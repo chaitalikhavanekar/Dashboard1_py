@@ -598,22 +598,26 @@ except NameError:
 if SMTP_HOST and SMTP_PORT and SMTP_USER and SMTP_PASS:
     st.markdown("Send newsletter via SMTP")
     to_addr = st.text_input("To (comma separated):", value="")
+
     if st.button("Send newsletter"):
         import smtplib, ssl
         from email.message import EmailMessage
+
         msg = EmailMessage()
         msg["Subject"] = "Daily Economic Brief"
         msg["From"] = SMTP_USER
         msg["To"] = [a.strip() for a in to_addr.split(",") if a.strip()]
-        msg.set_content(nl_area)   
-try:
+        msg.set_content(nl_area)
+
+        try:
             context = ssl.create_default_context()
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=context) as smtp:
-                smtp.login(SMTP_USER, SMTP_PASS)
-                smtp.send_message(msg)
-            st.success("Newsletter sent.")
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=context) as server:
+                server.login(SMTP_USER, SMTP_PASS)
+                server.send_message(msg)
+            st.success("✅ Newsletter sent successfully!")
+
         except Exception as e:
-            st.error(f"Send failed: {e}")
+            st.error(f"❌ Failed to send email: {e}")
 else:
     st.info("SMTP not configured. To enable send, set SMTP_* env vars.")
 
