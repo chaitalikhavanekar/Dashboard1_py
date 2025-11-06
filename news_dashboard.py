@@ -565,11 +565,6 @@ st.markdown("<h2>📊 INDIA'S ECONOMIC INDICATORS — MAIN PAGE</h2>", unsafe_al
 st.markdown("<div class='small-muted'>Click any card to open the detailed macro dashboard (CPI, IIP, GDP, Unemployment)</div>", unsafe_allow_html=True)
 st.markdown("")
 
-# --- Upload fallbacks (keep existing keys to avoid collisions) ---
-cpi_upload = st.file_uploader("Upload CPI CSV/PDF (fallback)", type=["csv","pdf"], key="up_cpi")
-iip_upload = st.file_uploader("Upload IIP CSV/PDF (fallback)", type=["csv","pdf"], key="up_iip")
-gdp_upload = st.file_uploader("Upload GDP CSV/PDF (fallback)", type=["csv","pdf"], key="up_gdp")
-
 def _load_uploaded_df(uploaded):
     if not uploaded:
         return None
@@ -577,7 +572,7 @@ def _load_uploaded_df(uploaded):
         if uploaded.name.lower().endswith(".csv"):
             return pd.read_csv(uploaded)
         else:
-            return pd.read_excel(uploaded)
+            return pd.read_pdf(uploaded)
     except Exception as e:
         log(f"upload parse error: {e}")
         return None
@@ -702,7 +697,7 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
     elif uploaded_df is not None:
         st.dataframe(uploaded_df.head(6))
     else:
-        st.info("No official release data available. Upload CSV/XLSX as fallback.")
+        st.info("No official release data available. Upload CSV/PDF as fallback.")
 
     # --- NEWS SECTION ---
     st.markdown("### 📰 Related news (sentiment-labeled)")
