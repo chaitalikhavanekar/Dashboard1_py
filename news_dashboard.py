@@ -763,9 +763,9 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
     for a given keyword. Accepts an optional data.gov resource_id or an
     uploaded dataframe (uploaded_df) as fallback.
     """
+# --- PRESS RELEASE SECTION ---
     st.markdown("### ⚖️ Press releases / Latest official data")
 
-    # try data.gov resource first
     if resource_id and DATA_GOV_API_KEY:
         try:
             j = fetch_data_gov_resource(resource_id, limit=6)
@@ -780,20 +780,21 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
         else:
             st.info("No official recent releases found (data.gov).")
 
-    # fallback: user uploaded dataframe (CSV/XLSX/PDF processed elsewhere)
-elif uploaded_df is not None:
-    try:
-        if hasattr(uploaded_df, "name") and uploaded_df.name.lower().endswith(".pdf"):
-            pdf_text = read_pdf(uploaded_df)
-            st.markdown("##### 📰 Extracted press release preview:")
-            st.text_area("Press Release Content", pdf_text, height=200)
-        else:
-            st.dataframe(uploaded_df.head(6))
-    except Exception as e:
-        st.warning(f"⚠️ Error reading uploaded file: {e}")  
+    elif uploaded_df is not None:
+        try:
+            # Handle PDF or CSV/XLSX
+            if hasattr(uploaded_df, "name") and uploaded_df.name.lower().endswith(".pdf"):
+                pdf_text = read_pdf(uploaded_df)
+                st.markdown("##### 📰 Extracted press release preview:")
+                st.text_area("Press Release Content", pdf_text, height=200)
+            else:
+                st.dataframe(uploaded_df.head(6))
+        except Exception as e:
+            st.warning(f"⚠️ Error reading uploaded file: {e}")
+
     else:
         st.info("No official release data available. Upload CSV/PDF as fallback.")
-
+        
     # --- NEWS SECTION ---
     st.markdown("#### 🗞️ Related news (sentiment-labeled)")
 
