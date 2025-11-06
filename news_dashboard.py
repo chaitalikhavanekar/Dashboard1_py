@@ -624,17 +624,14 @@ with mcols[2]:
 
 # ---------- Single-stock deep dive ----------
 st.markdown("---")
-st.markdown("## 💹 Stock — single symbol deep dive (chart + corporate actions + related news)")
+st.markdown("## 💹 Stock — Single Symbol Deep Dive (Chart + Corporate Actions + Related News)")
 st.markdown("Enter symbol in sidebar (e.g., RELIANCE.NS).")
 
 if stock_input:
-    # --- Select time duration ---
     st.markdown("### 📅 Select Time Range")
 
     tab_labels = ["1D", "3M", "6M", "1Y", "2Y", "3Y", "5Y"]
     tabs = st.tabs(tab_labels)
-
-    # Map display tab → yfinance parameters
     period_map = {
         "1D": ("1d", "5m"),
         "3M": ("3mo", "1d"),
@@ -645,7 +642,6 @@ if stock_input:
         "5Y": ("5y", "1wk")
     }
 
-    # Store selected period in session state
     if "selected_period" not in st.session_state:
         st.session_state["selected_period"] = "1Y"
 
@@ -657,343 +653,112 @@ if stock_input:
 
     selected_label = st.session_state["selected_period"]
     period, interval = period_map[selected_label]
-    # Map tab selection to Yahoo Finance period and interval
-    duration_map = {
-        "1D": ("1d", "5m"),
-        "3M": ("3mo", "1d"),
-        "6M": ("6mo", "1d"),
-        "1Y": ("1y", "1d"),
-        "2Y": ("2y", "1wk"),
-        "3Y": ("3y", "1wk"),
-        "5Y": ("5y", "1wk")
-    }
 
-    # Default to "1Y"
-    selected_period = "1Y"
-    for label in duration:
-        if label.title() == "1D":  # Tab 1 is active
-            selected_period = "1Y"  # fallback default
-        if label.title() == st.session_state.get("active_tab", "1Y"):
-            selected_period = label.title()
-
-    # Save active tab to session state
-    st.session_state["active_tab"] = selected_period
-
-    period, interval = duration_map[selected_period]
-
-    with st.spinner(f"Fetching {stock_input} data ({selected_period})..."):
-        sh = yf.download(stock_input, period=period, interval=interval)
-        sa = fetch_stock_actions(stock_input)
-
-    # Clean stock data
-    if not sh.empty:
-        sh = sh.reset_index()
-        if isinstance(sh.columns, pd.MultiIndex):
-            sh.columns = [col[0] if isinstance(col, tuple) else col for col in sh.columns]
-
-        sh.rename(columns={
-            "Date": "Date",
-            "Close": "close",
-            "Open": "open",
-            "High": "high",
-            "Low": "low",
-            "Volume": "volume"
-        }, inplace=True, errors="ignore")
-
-        sh.dropna(inplace=True)
-        sh = sh.sort_values("Date")# --- Clean and standardize stock data (works for all companies) ---
-    if not sh.empty:
-        sh = sh.reset_index()
-
-        # Flatten multi-level columns like ('Close', 'RELIANCE.NS')
-        if isinstance(sh.columns, pd.MultiIndex):
-            sh.columns = [col[0] if isinstance(col, tuple) else col for col in sh.columns]
-
-        # Rename columns for consistency across all symbols
-        sh.rename(columns={
-            "Date": "Date",
-            "Close": "close",
-            "Open": "open",
-            "High": "high",
-            "Low": "low",
-            "Volume": "volume"
-        }, inplace=True, errors="ignore")
-
-        # Drop missing values
-        sh.dropna(inplace=True)
-
-        # Sort by date (important for moving averages)
-        sh = sh.sort_values("Date")
-
-# ---------- 🌍 Global Stock Snapshot + Corporate Section ----------
-st.markdown("---")
-st.markdown("## 💹 Live Stock Overview")
-
-try:
-    if stock_input:
-        ticker = yf.Ticker(stock_input)
-        data = ticker.history(period="1d", interval="1m")
-        actions = fetch_stock_actions(stock_input)
-
+    # --- Fetch stock data ---
+    with st.spinner(f"Fetching {stock_input} data for {selected_label}..."):
+        data = yf.download(stock_input, period=period, interval=interval, progress=False)
         if data.empty:
-            st.warning("⚠️ No intraday data available. Try RELIANCE.NS / AAPL.")
+            st.warning("⚠️ No stock data found. Try another symbol or add .NS for Indian stocks.")
         else:
+            data = data.reset_index()
             latest = data.iloc[-1]
             prev = data.iloc[-2] if len(data) > 1 else latest
 
-            cur = float(latest["Close"])
-            prev_val = float(prev["Close"])
-            chg_val = cur - prev_val
-            chg_pct = (chg_val / prev_val) * 100 if prev_val else 0
-            color = "green" if chg_val > 0 else "red" if chg_val < 0 else "gray"
-            arrow = "▲" if chg_val > 0 else "▼" if chg_val < 0 else "→"
-            sentiment = "Bullish 📈" if chg_val > 0 else "Bearish 📉" if chg_val < 0 else "Neutral ⚖️"
+            current_price = float(latest["Close"])
+            prev_price = float(prev["Close"])
+            change_val = current_price - prev_price
+            change_pct = (change_val / prev_price) * 100 if prev_price else 0.0
+            open_price = float(latest["Open"])
+            high_price = float(latest["High"])
+            low_price = float(latest["Low"])
+            volume = int(latest["Volume"])
 
-            # ---- price metrics ----
-            open_p, high_p, low_p, vol = map(
-                float, [latest["Open"], latest["High"], latest["Low"], latest["Volume"]]
-            )
+            color = "green" if change_val > 0 else "red" if change_val < 0 else "gray"
+            arrow = "▲" if change_val > 0 else "▼" if change_val < 0 else "→"
+            sentiment = "Bullish 📈" if change_val > 0 else "Bearish 📉" if change_val < 0 else "Neutral ⚖️"
 
-            with st.container(border=True):
-                c1, c2, c3, c4, c5, c6 = st.columns([1.5, 1, 1, 1, 1, 1])
-                c1.markdown(f"<h2 style='color:{color}'>{arrow} ₹{cur:,.2f}</h2>", unsafe_allow_html=True)
-                c1.caption(f"{chg_val:+.2f} ₹ / {chg_pct:+.2f}%")
-                c2.metric("Open", f"{open_p:,.2f}")
-                c3.metric("High", f"{high_p:,.2f}")
-                c4.metric("Low", f"{low_p:,.2f}")
-                c5.metric("Volume", f"{int(vol):,}")
-                c6.markdown(f"<b style='color:{color}'>{sentiment}</b>", unsafe_allow_html=True)
-                st.caption(f"🕒 Last updated: {latest.name.strftime('%Y-%m-%d %H:%M:%S')}")
+            # --- Display current stats ---
+            st.markdown(f"### {stock_input} — Current Snapshot")
+            c1, c2, c3, c4, c5, c6 = st.columns(6)
+            c1.metric("Price", f"₹{current_price:,.2f}", f"{change_val:+.2f}")
+            c2.metric("Change (%)", f"{change_pct:+.2f}%")
+            c3.metric("Open", f"₹{open_price:,.2f}")
+            c4.metric("High", f"₹{high_price:,.2f}")
+            c5.metric("Low", f"₹{low_price:,.2f}")
+            c6.metric("Volume", f"{volume:,}")
+            st.caption(f"🕒 Last Updated: {latest['Date']} | Sentiment: {sentiment}")
 
-            # ---- mini chart ----
+            # --- Line chart for price trend ---
             import plotly.graph_objects as go
-            fig = go.Figure(go.Scatter(x=data.index, y=data["Close"],
-                                       mode="lines", line=dict(color=color, width=2)))
-            fig.update_layout(height=160, margin=dict(l=0, r=0, t=0, b=0),
-                              xaxis_visible=False, yaxis_visible=False)
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=data["Date"], y=data["Close"],
+                mode="lines", name="Price",
+                line=dict(color=color, width=2)
+            ))
+            fig.update_layout(
+                title=f"{stock_input} — {selected_label} Trend",
+                yaxis_title="Price (₹)",
+                xaxis_title="Date",
+                template="plotly_white",
+                height=400
+            )
             st.plotly_chart(fig, use_container_width=True)
 
-            st.info("🔥 Overvalued" if chg_pct > 3 else "🧊 Undervalued" if chg_pct < -3 else "⚖️ Fair Value")
+            # --- Moving averages ---
+            st.markdown("### 📊 Moving Averages (Trend Analysis)")
+            data["MA20"] = data["Close"].rolling(window=20).mean()
+            data["MA50"] = data["Close"].rolling(window=50).mean()
+            data["MA200"] = data["Close"].rolling(window=200).mean()
 
-            # ---------- Corporate actions + News side-by-side ----------
-            st.markdown("### 🏢 Corporate Actions and News")
-            left, right = st.columns([1.1, 1.9])
+            show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
+            show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
+            show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
 
-            with left:
-                st.markdown("#### 📘 Company Actions")
-                divs = actions.get("dividends", pd.Series(dtype=float))
-                splits = actions.get("splits", pd.Series(dtype=float))
-                if not getattr(divs, "empty", True):
-                    st.dataframe(divs.tail(8).reset_index(), hide_index=True)
-                else:
-                    st.info("No dividends found.")
-                if not getattr(splits, "empty", True):
-                    st.dataframe(splits.tail(8).reset_index(), hide_index=True)
-                else:
-                    st.info("No splits found.")
+            fig_ma = go.Figure()
+            fig_ma.add_trace(go.Scatter(
+                x=data["Date"], y=data["Close"], mode="lines",
+                line=dict(color=color, width=2), name="Price"
+            ))
+            if show_ma20:
+                fig_ma.add_trace(go.Scatter(
+                    x=data["Date"], y=data["MA20"], mode="lines",
+                    line=dict(width=1.8, dash="dot", color="blue"), name="MA20"
+                ))
+            if show_ma50:
+                fig_ma.add_trace(go.Scatter(
+                    x=data["Date"], y=data["MA50"], mode="lines",
+                    line=dict(width=1.8, dash="dot", color="orange"), name="MA50"
+                ))
+            if show_ma200:
+                fig_ma.add_trace(go.Scatter(
+                    x=data["Date"], y=data["MA200"], mode="lines",
+                    line=dict(width=1.8, dash="dot", color="red"), name="MA200"
+                ))
 
-            with right:
-                st.markdown("#### 📰 Latest Corporate Headlines")
-                try:
-                    url = (f"https://newsapi.org/v2/everything?"
-                           f"q={stock_input}+corporate+actions&sortBy=publishedAt&pageSize=5&apiKey={st.secrets['NEWSAPI_KEY']}")
-                    js = requests.get(url).json()
-                    for art in js.get("articles", [])[:5]:
-                        st.markdown(f"**[{art['title']}]({art['url']})**")
-                        st.caption(f"{art['source']['name']} — {art['publishedAt'][:16].replace('T',' ')}")
-                        st.caption(art.get('description') or '')
-                        st.divider()
-                except Exception as e:
-                    st.warning(f"Could not load corporate news: {e}")
+            fig_ma.update_layout(title=f"{stock_input} — Moving Averages", height=400)
+            st.plotly_chart(fig_ma, use_container_width=True)
 
-    else:
-        st.info("Enter a stock symbol in the sidebar (e.g., RELIANCE.NS or AAPL).")
+            # --- Corporate actions ---
+            st.markdown("### 🏢 Corporate Actions")
+            sa = fetch_stock_actions(stock_input)
+            divs = sa.get("dividends")
+            splits = sa.get("splits")
 
-except Exception as e:
-    st.error(f"Stock section error: {e}")
+            if not getattr(divs, "empty", True):
+                st.subheader("Dividends")
+                st.dataframe(divs.reset_index().tail(5))
+            else:
+                st.info("No dividend data available.")
 
-# --- Moving Averages (Trend Analysis) ---
-st.markdown("### 📊 Moving Averages (Trend Analysis)")
-try:
-    # Checkbox controls
-    show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
-    show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
-    show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
+            if not getattr(splits, "empty", True):
+                st.subheader("Stock Splits")
+                st.dataframe(splits.reset_index().tail(5))
+            else:
+                st.info("No split data available.")
 
-    # Calculate moving averages
-    sh["MA20"] = sh["close"].rolling(window=20).mean()
-    sh["MA50"] = sh["close"].rolling(window=50).mean()
-    sh["MA200"] = sh["close"].rolling(window=200).mean()
-
-    # Create chart with moving averages
-    fig_ma = px.line(
-        sh,
-        x="Date",
-        y="close",
-        title=f"{stock_input.upper()} Trend Overview (with Moving Averages)",
-        labels={"close": "Price (₹)", "Date": "Date"},
-    )
-    # Update the base line (actual stock price)
-    fig_ma.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
-
-    # Add optional moving average lines
-    if show_ma20:
-        fig_ma.add_scatter(
-            x=sh["Date"], y=sh["MA20"],
-            mode="lines", name="MA20 (Short)",
-            line=dict(width=1.8, dash="dot", color=PALETTE["teal"])
-        )
-
-    if show_ma50:
-        fig_ma.add_scatter(
-            x=sh["Date"], y=sh["MA50"],
-            mode="lines", name="MA50 (Medium)",
-            line=dict(width=1.8, dash="dot", color=PALETTE["mid"])
-        )
-
-    if show_ma200:
-        fig_ma.add_scatter(
-            x=sh["Date"], y=sh["MA200"],
-            mode="lines", name="MA200 (Long)",
-            line=dict(width=1.8, dash="dot", color=PALETTE["neg"])
-        )
-
-    st.plotly_chart(fig_ma, use_container_width=True)
-
-except Exception as e:
-    st.warning(f"Moving average overlay unavailable: {e}")
-
-show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
-show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
-show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
-
-# Calculate moving averages
-sh["MA20"] = sh["close"].rolling(window=20).mean()
-sh["MA50"] = sh["close"].rolling(window=50).mean()
-sh["MA200"] = sh["close"].rolling(window=200).mean()
-
-# Create chart with moving averages
-fig_ma = px.line(
-    sh,
-    x="Date",
-    y="close",
-    title=f"{stock_input.upper()} Trend Overview (with Moving Averages)",
-    labels={"close": "Price (₹)", "Date": "Date"},
-)
-
-# Update base line color
-fig_ma.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
-# --- Moving Averages Overlay ---
-try:
-    st.markdown("### 📊 Moving Averages (Trend Analysis)")
-
-    # Checkbox controls
-    show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True, key="ma20_checkbox")
-    show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True, key="ma50_checkbox")
-    show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False, key="ma200_checkbox")
-
-    # Calculate moving averages
-    sh["MA20"] = sh["close"].rolling(window=20).mean()
-    sh["MA50"] = sh["close"].rolling(window=50).mean()
-    sh["MA200"] = sh["close"].rolling(window=200).mean()
-
-    # Create chart with moving averages
-    fig_ma = px.line(
-        sh,
-        x="Date",
-        y="close",
-        title=f"{stock_input.upper()} Trend Overview (with Moving Averages)",
-        labels={"close": "Price (₹)", "Date": "Date"},
-    )
-
-    # Update base line color
-    fig_ma.update_traces(line=dict(color=PALETTE["pos"] if pct >= 0 else PALETTE["neg"], width=2))
-
-    # Add optional MA lines
-    if show_ma20:
-        fig_ma.add_scatter(
-            x=sh["Date"], y=sh["MA20"],
-            mode="lines", name="MA20 (Short)",
-            line=dict(width=1.8, dash="dot", color=PALETTE["teal"])
-        )
-
-    if show_ma50:
-        fig_ma.add_scatter(
-            x=sh["Date"], y=sh["MA50"],
-            mode="lines", name="MA50 (Medium)",
-            line=dict(width=1.8, dash="dot", color=PALETTE["mid"])
-        )
-
-    if show_ma200:
-        fig_ma.add_scatter(
-            x=sh["Date"], y=sh["MA200"],
-            mode="lines", name="MA200 (Long)",
-            line=dict(width=1.8, dash="dot", color=PALETTE["neg"])
-        )
-
-    st.plotly_chart(fig_ma, use_container_width=True)
-
-except Exception as e:
-    st.warning(f"Moving average overlay unavailable: {e}")
 else:
-    st.warning(
-        f"No historical data found for {stock_input}. "
-        f"Check symbol (e.g., RELIANCE.NS for NSE)."
-    )
-
-# --- Corporate actions ---
-st.markdown("### Corporate actions")
-try:
-    divs = sa.get("dividends")
-    splits = sa.get("splits")
-
-    if not getattr(divs, "empty", True):
-        ddf = divs.reset_index().rename(columns={"Date": "Date", 0: "Dividend"}) if isinstance(divs, pd.Series) else divs
-        st.dataframe(ddf.tail(8))
-    else:
-        st.info("No dividends found (yfinance).")
-
-    if not getattr(splits, "empty", True):
-        sdf = splits.reset_index().rename(columns={"Date": "Date", 0: "Split"}) if isinstance(splits, pd.Series) else splits
-        st.dataframe(sdf.tail(8))
-    else:
-        st.info("No splits found (yfinance).")
-
-except Exception as e:
-    st.error(f"Corporate actions error: {e}")
-
-# Related news
-# --- Auto-refresh every 60 seconds for latest data ---
-from streamlit_autorefresh import st_autorefresh
-st_autorefresh(interval=60 * 1000, key="news_refresh")
-st.markdown("### Related news (search fallback)")
-import streamlit.components.v1 as components
-
-st.markdown("### 🔥 Trending Now")
-trending_html = """
-<marquee behavior="scroll" direction="left" scrollamount="5" style="color:#FF4B4B; font-weight:bold; font-size:18px;">
-Breaking: RBI policy update • Sensex jumps 500 points • Reliance launches new EV venture • Gold prices dip 1.5%
-</marquee>
-"""
-components.html(trending_html, height=40)
-# --- Personalized News Feed Section ---
-if interests:
-    for topic in interests:
-        st.markdown(f"### 🗞️ {topic.title()} News")
-        df = fetch_latest_news(topic)
-        if not df.empty:
-            for i, row in df.iterrows():
-                st.markdown(f"**[{row['title']}]({row['url']})**")
-                st.caption(f"🕒 {row['publishedAt']}")
-                st.divider()
-        else:
-            st.info(f"No recent news found for {topic}.")
-related = fetch_news(f"{search_query} {stock_input}", n=6)
-if related:
-    for r in related:
-        st.markdown(f"- <a href='{r.get('url')}' target='_blank'>{r.get('title')}</a>", unsafe_allow_html=True)
-else:
-    st.info("No related news found.")
+    st.info("Please enter a valid stock symbol (e.g., RELIANCE.NS, TCS.NS, AAPL).")
 # ---------- Footer & debug ----------
 st.markdown("---")
 st.markdown(f"<div style='color:{PALETTE['teal']}'>Last update: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</div>", unsafe_allow_html=True)
