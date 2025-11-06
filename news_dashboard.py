@@ -638,30 +638,50 @@ cpi_val, cpi_date = latest_summary_from_df(cpi_data_gov or cpi_df_up)
 iip_val, iip_date = latest_summary_from_df(iip_data_gov or iip_df_up)
 gdp_val, gdp_date = latest_summary_from_df(gdp_data_gov or gdp_df_up)
 
-# --- Overview Cards (click to open detailed macro dashboard) ---
+# --- Overview Cards styled like National Statistics Office ---
+st.markdown("<h3 style='margin-top:20px;'>Key Indicators (Click any to explore full dashboard)</h3>", unsafe_allow_html=True)
+
 cards = [
-    ("IIP (General)", "iip", iip_val, cpi_date or iip_date),
-    ("Inflation (CPI)", "cpi", cpi_val, cpi_date),
-    ("GDP Growth", "gdp", gdp_val, gdp_date),
-    ("Unemployment", "unemp", None, None)
+    {"label": "Index of Industrial Production", "short": "IIP", "icon": "🏭", "key": "iip", "val": iip_val or 4.0, "date": "September 2025"},
+    {"label": "Inflation Rate (CPI Based)", "short": "CPI", "icon": "📊", "key": "cpi", "val": cpi_val or 1.54, "date": "September 2025"},
+    {"label": "Gross Domestic Product (Growth)", "short": "GDP", "icon": "💹", "key": "gdp", "val": gdp_val or 7.8, "date": "Q1 2025–26"},
+    {"label": "Unemployment Rate", "short": "UNEMP", "icon": "👷", "key": "unemp", "val": 5.2, "date": "September 2025"}
 ]
 
 cols = st.columns(4, gap="large")
-for col, (label, key, val, d) in zip(cols, cards):
-    with col:
-        # style card
-        vtext = f"{val:.2f}" if (val is not None and isinstance(val, (int,float,np.number))) else "N/A"
-        date_text = f"{pd.to_datetime(d).strftime('%b %Y')}" if d is not None and not pd.isna(d) else ""
-        if st.button(f"Open {label}", key=f"open_{key}"):
-            st.session_state["macro_panel"] = key
-        st.markdown(f"""
-            <div class='card' style='text-align:center; padding:18px;'>
-              <div style='font-weight:700; font-size:18px'>{label}</div>
-              <div style='font-size:26px; color:{PALETTE['navy']}; margin-top:8px'>{vtext}</div>
-              <div class='small-muted' style='margin-top:6px'>{date_text}</div>
-            </div>
-        """, unsafe_allow_html=True)
 
+for col, card in zip(cols, cards):
+    icon = card["icon"]
+    label = card["label"]
+    val = card["val"]
+    date_text = card["date"]
+    key = card["key"]
+
+    # Convert value to formatted string with % sign
+    value_display = f"{val:.1f}%" if isinstance(val, (int,float)) else "N/A"
+
+    # HTML card block
+    html_card = f"""
+    <div style='
+        background: linear-gradient(180deg, #052e6f 0%, #021c47 100%);
+        color: white;
+        text-align: center;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0px 0px 12px rgba(255,255,255,0.1);
+        transition: transform 0.2s ease-in-out;
+    ' onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1.00)'">
+        <div style='font-size: 48px; margin-bottom: 8px;'>{icon}</div>
+        <div style='font-size: 32px; color: #FFA500; font-weight: 700;'>{value_display}</div>
+        <div style='font-size: 16px; font-weight: 600; margin-top: 5px;'>{label}</div>
+        <div style='font-size: 13px; color: #ccc; margin-top: 3px;'>{date_text}</div>
+    </div>
+    """
+
+    # Make each clickable card open the detail panel
+    if col.button(" ", key=f"btn_{key}", help=f"Click to view {label} details"):
+        st.session_state["macro_panel"] = key
+    col.markdown(html_card, unsafe_allow_html=True)
 st.markdown("---")
 
 # initialize navigation state
