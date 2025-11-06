@@ -763,8 +763,9 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
     else:
         st.info("No official release data available. Upload CSV/PDF as fallback.")
 
-    # --- NEWS SECTION ---
+# --- NEWS SECTION ---
     st.markdown("#### 🗞️ Related news (sentiment-labeled)")
+
     try:
         related = fetch_news(keyword, n=nnews)
         if not related:
@@ -788,7 +789,7 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
             if s and len(s) < 300:
                 st.caption(s)
 
-except Exception as e:
+    except Exception as e:
         st.warning(f"⚠️ Unable to fetch or display related news: {e}")
         if not related:
             st.info("No news found.")
