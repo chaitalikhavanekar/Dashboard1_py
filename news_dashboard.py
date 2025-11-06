@@ -748,6 +748,15 @@ if "macro_panel" not in st.session_state:
     st.session_state["macro_panel"] = None
 
 # --- Helper: show press releases and news with sentiment for a keyword ---
+def read_pdf(file):
+    try:
+        reader = PyPDF2.PdfReader(file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        return text.strip()[:2000]  # Limit to 2000 chars for display
+    except Exception as e:
+        return f"⚠️ Could not read PDF: {e}"
 def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
     """
     Show press releases (official) and related news (sentiment-labeled)
@@ -772,11 +781,16 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
             st.info("No official recent releases found (data.gov).")
 
     # fallback: user uploaded dataframe (CSV/XLSX/PDF processed elsewhere)
-    elif uploaded_df is not None:
-        try:
+elif uploaded_df is not None:
+    try:
+        if hasattr(uploaded_df, "name") and uploaded_df.name.lower().endswith(".pdf"):
+            pdf_text = read_pdf(uploaded_df)
+            st.markdown("##### 📰 Extracted press release preview:")
+            st.text_area("Press Release Content", pdf_text, height=200)
+        else:
             st.dataframe(uploaded_df.head(6))
-        except Exception as e:
-            st.warning(f"⚠️ Error displaying uploaded release data: {e}")
+    except Exception as e:
+        st.warning(f"⚠️ Error reading uploaded file: {e}")  
     else:
         st.info("No official release data available. Upload CSV/PDF as fallback.")
 
