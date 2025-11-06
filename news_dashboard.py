@@ -566,9 +566,9 @@ st.markdown("<div class='small-muted'>Click any card to open the detailed macro 
 st.markdown("")
 
 # --- Upload fallbacks (keep existing keys to avoid collisions) ---
-cpi_upload = st.file_uploader("Upload CPI CSV/XLSX (fallback)", type=["csv","xlsx"], key="up_cpi")
-iip_upload = st.file_uploader("Upload IIP CSV/XLSX (fallback)", type=["csv","xlsx"], key="up_iip")
-gdp_upload = st.file_uploader("Upload GDP CSV/XLSX (fallback)", type=["csv","xlsx"], key="up_gdp")
+cpi_upload = st.file_uploader("Upload CPI CSV/PDF (fallback)", type=["csv","pdf"], key="up_cpi")
+iip_upload = st.file_uploader("Upload IIP CSV/PDF (fallback)", type=["csv","pdf"], key="up_iip")
+gdp_upload = st.file_uploader("Upload GDP CSV/PDF (fallback)", type=["csv","pdf"], key="up_gdp")
 
 def _load_uploaded_df(uploaded):
     if not uploaded:
