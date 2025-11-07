@@ -931,9 +931,16 @@ elif sec == "gdp":
             template="plotly_white"
         )
         st.plotly_chart(fig, use_container_width=True)
-        elif sec == "unemployment":
-                    df_try = unemployment_data_gov or unemployment_df_up
-
+for sec in sections:
+    if sec == "cpi":
+        ...
+    elif sec == "iip":
+        ...
+    elif sec == "gdp":
+        ...
+    elif sec == "unemployment":
+        ...
+        
                 # Map: if df has state column and value column
                 plotted = False
                 if df_try is not None and not df_try.empty:
