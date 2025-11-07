@@ -994,18 +994,22 @@ try:
             tmp[date_col] = pd.to_datetime(tmp[date_col], errors="coerce")
             tmp = tmp.dropna(subset=[date_col, value_col]).sort_values(date_col)
             fig_tr = px.line(tmp, x=date_col, y=value_col, title=f"{sec.upper()} trend")
-            st.plotly_chart(fig_tr, use_container_width=True)
+st.plotly_chart(fig_tr, use_container_width=True)
         else:
             st.info("Could not auto-detect date/value for trend. Upload CSV with 'date' and numeric 'value' columns.")
+    except Exception as e:
+        st.warning(f"Trend plot error: {e}")
+
+# ✅ Create two columns for layout
+left, right = st.columns([2, 1])
+
 with left:
-    # line charts, donut, etc.
-    ...
-except Exception as e:
-    st.warning(f"Trend plot error: {e}")
+    # You can add charts or visuals here if needed
+    st.markdown("### GDP Data Visualization Area")
 
 with right:
     st.markdown(f"### {sec.upper()} — Press releases & News")
-    # press / official data
+
     if sec == "cpi":
         show_press_and_news("CPI India", resource_id=CPI_RESOURCE_ID, uploaded_df=cpi_df_up)
     elif sec == "iip":
