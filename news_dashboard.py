@@ -961,13 +961,14 @@ for sec in sections:
                             plotted = True
                         except Exception as e:
                             log(f"plot map error: {e}")
-        if not plotted:
-                    st.info("Map / state-level plot not auto-detectable. Upload state-level CSV with 'state' + 'value' columns.")
+if not plotted:
+    st.info("Map / state-level plot not auto-detectable. Upload state-level CSV with 'state' + 'value' columns.")
 
-                # Donut / Pie
-                st.markdown("#### Distribution (donut)")
-                try:
-                    if df_try is not None and not df_try.empty:
+# Donut / Pie section starts here
+st.markdown("#### Distribution (donut)")
+try:
+    ...
+    if df_try is not None and not df_try.empty:
                         # quick group by if category present
                         cat_col = next((c for c in df_try.columns if any(x in c.lower() for x in ["category","group","component","sector","item"])), None)
                         if cat_col:
