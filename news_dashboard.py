@@ -35,7 +35,6 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import plotly.express as px
-from textblob import TextBlob
 
 import streamlit as st
 
@@ -267,20 +266,10 @@ def fetch_news(query, n=8):
         return res
     return fetch_google_rss(query, n=n)
 
-def sentiment_label(text):
-    try:
-        tb = TextBlob(text or "")
-        score = round(tb.sentiment.polarity, 3)
-        if score >= 0.05:
-            return ("positive", score)
-        elif score <= -0.05:
-            return ("negative", score)
-        else:
-            return ("neutral", score)
-    except Exception as e:
-        log(f"sentiment error: {e}")
-        return ("neutral", 0.0)
-
+# enrich news (without sentiment)
+for a in raw_news:
+    a["_user_score"] = score_for_user(a, st.session_state.get("prefs", []), [])
+    
 # yfinance helpers
 @st.cache_data(ttl=MARKET_TTL)
 def fetch_index_snapshot():
