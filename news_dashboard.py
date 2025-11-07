@@ -977,7 +977,7 @@ try:
                             st.plotly_chart(fig_pie, use_container_width=True)
                         else:
                             st.info("No category column detected for donut. Upload with 'category' column.")
-                    else:
+                        else:
                         st.info("No data for donut.")
                 except Exception as e:
                     st.warning(f"Donut plot error: {e}")
