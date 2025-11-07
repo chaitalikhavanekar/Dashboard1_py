@@ -942,8 +942,9 @@ for sec in sections:
         ...
         
                 # Map: if df has state column and value column
-                plotted = False
-                if df_try is not None and not df_try.empty:
+    elif sec == "unemployment":
+        plotted = False
+        if df_try is not None and not df_try.empty:
                     cols = df_try.columns.tolist()
                     state_col = next((c for c in cols if "state" in c.lower() or "region" in c.lower()), None)
                     value_col = next((c for c in cols if any(x in c.lower() for x in ["value","index","amount","gdp","cpi","iip","growth","percent","%","rate"])), None)
