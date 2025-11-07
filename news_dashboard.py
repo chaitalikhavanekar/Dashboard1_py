@@ -852,10 +852,84 @@ def render_macro_detail():
                     df_try = cpi_data_gov or cpi_df_up
                 elif sec == "iip":
                     df_try = iip_data_gov or iip_df_up
-                elif sec == "gdp":
-                    df_try = gdp_data_gov or gdp_df_up
-                else:
-                    df_try = None
+elif sec == "gdp":
+    # === GDP ANIMATED VISUALIZATION ===
+    st.markdown("### 💹 Quarter-wise GDP Growth (Animated)")
+    st.caption("Source – MoSPI Press Note (29 Aug 2025)")
+
+    frame_speed = st.sidebar.slider(
+        "GDP animation speed (ms per frame)",
+        min_value=100, max_value=1200, value=400, step=50,
+        key="gdp_speed"
+    )
+
+    df_gdp = gdp_df_up or gdp_data_gov
+    if df_gdp is None or (hasattr(df_gdp, "empty") and df_gdp.empty):
+        st.info("Upload or link GDP data (quarter, value, growth %) to see animation.")
+    else:
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        # auto-detect columns
+        cols = [c.lower() for c in df_gdp.columns]
+        date_col = next((c for c in df_gdp.columns if "quarter" in c.lower() or "date" in c.lower()), df_gdp.columns[0])
+        val_col  = next((c for c in df_gdp.columns if "gdp" in c.lower() or "value" in c.lower() or "amount" in c.lower()), df_gdp.columns[1])
+        growth_col = next((c for c in df_gdp.columns if "growth" in c.lower() or "%" in c.lower()), None)
+
+        df = df_gdp[[date_col, val_col] + ([growth_col] if growth_col else [])].copy()
+        df[date_col] = df[date_col].astype(str)
+        for c in [val_col, growth_col]:
+            if c in df:
+                df[c] = pd.to_numeric(df[c].astype(str).str.replace("%","").str.replace(",",""), errors="coerce")
+
+        # make animated frames
+        x = df[date_col].tolist()
+        y_val = df[val_col].tolist()
+        y_growth = df[growth_col].tolist() if growth_col else [None]*len(x)
+
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        frames = []
+        for k in range(1, len(x)+1):
+            frames.append(
+                go.Frame(
+                    data=[
+                        go.Bar(x=x[:k], y=y_val[:k], name="GDP ₹ Cr", marker_color="#1f77b4"),
+                        go.Scatter(x=x[:k], y=y_growth[:k], mode="lines+markers",
+                                   line=dict(color="#d62728", width=3),
+                                   marker=dict(size=8, color="#fff", line=dict(color="#d62728", width=2)),
+                                   name="Growth %")
+                    ],
+                    name=f"f{k}"
+                )
+            )
+
+        fig.add_trace(go.Bar(x=[], y=[], name="GDP ₹ Cr", marker_color="#1f77b4"), secondary_y=False)
+        fig.add_trace(go.Scatter(x=[], y=[], name="Growth %", mode="lines+markers",
+                                 line=dict(color="#d62728", width=3)), secondary_y=True)
+
+        fig.frames = frames
+        fig.update_layout(
+            title="Quarter-wise Real GDP & Growth Rate (Animated)",
+            yaxis=dict(title="GDP (₹ Crore)"),
+            yaxis2=dict(title="Growth (%)", overlaying="y", side="right"),
+            updatemenus=[{
+                "type": "buttons",
+                "buttons": [
+                    {"label": "Play", "method": "animate",
+                     "args": [None, {"frame": {"duration": frame_speed, "redraw": True},
+                                     "fromcurrent": True,
+                                     "transition": {"duration": int(frame_speed/3), "easing": "cubic-in-out"}}]},
+                    {"label": "Pause", "method": "animate",
+                     "args": [[None], {"frame": {"duration": 0}, "mode": "immediate"}]}
+                ],
+                "x": 0.0, "y": 1.15, "showactive": True
+            }],
+            height=450,
+            template="plotly_white"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        elif sec == "unemployment":
+                    df_try = unemployment_data_gov or unemployment_df_up
 
                 # Map: if df has state column and value column
                 plotted = False
