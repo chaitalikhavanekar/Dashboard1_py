@@ -852,7 +852,7 @@ def render_macro_detail():
                     df_try = cpi_data_gov or cpi_df_up
                 elif sec == "iip":
                     df_try = iip_data_gov or iip_df_up
-elif sec == "gdp":
+                elif sec == "gdp":
     # === GDP ANIMATED VISUALIZATION ===
     st.markdown("### 💹 Quarter-wise GDP Growth (Animated)")
     st.caption("Source – MoSPI Press Note (29 Aug 2025)")
