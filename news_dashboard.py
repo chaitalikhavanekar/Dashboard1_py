@@ -961,7 +961,7 @@ for sec in sections:
                             plotted = True
                         except Exception as e:
                             log(f"plot map error: {e}")
-                if not plotted:
+        if not plotted:
                     st.info("Map / state-level plot not auto-detectable. Upload state-level CSV with 'state' + 'value' columns.")
 
                 # Donut / Pie
