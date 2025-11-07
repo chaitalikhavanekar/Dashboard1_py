@@ -848,13 +848,16 @@ def render_macro_detail():
                 st.markdown(f"### {sec.upper()} — Visualizations")
                 # 1) Map (choropleth) — try to plot if we have state-level values
                 df_try = None
-                if sec == "cpi":
-                    df_try = cpi_data_gov or cpi_df_up
-                elif sec == "iip":
-                    df_try = iip_data_gov or iip_df_up
-                elif sec == "gdp":
+if sec == "cpi":
+    df_try = cpi_data_gov or cpi_df_up
+
+elif sec == "iip":
+    df_try = iip_data_gov or iip_df_up
+
+elif sec == "gdp":
     # === GDP ANIMATED VISUALIZATION ===
     st.markdown("### 💹 Quarter-wise GDP Growth (Animated)")
+    ...
     st.caption("Source – MoSPI Press Note (29 Aug 2025)")
 
     frame_speed = st.sidebar.slider(
