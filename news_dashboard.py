@@ -967,21 +967,20 @@ if not plotted:
 # Donut / Pie section starts here
 st.markdown("#### Distribution (donut)")
 try:
-    ...
     if df_try is not None and not df_try.empty:
-                        # quick group by if category present
-                        cat_col = next((c for c in df_try.columns if any(x in c.lower() for x in ["category","group","component","sector","item"])), None)
-                        if cat_col:
-                            ddf = df_try.groupby(cat_col).size().reset_index(name="count").sort_values("count", ascending=False)
-                            fig_pie = px.pie(ddf, names=cat_col, values="count", title="Category distribution")
-                            st.plotly_chart(fig_pie, use_container_width=True)
-                        else:
-                            st.info("No category column detected for donut. Upload with 'category' column.")
-                        else:
-                        st.info("No data for donut.")
-                except Exception as e:
-                    st.warning(f"Donut plot error: {e}")
-
+        # quick group by if category present
+        cat_col = next((c for c in df_try.columns if any(x in c.lower() for x in ["category","group","component","sector","item"])), None)
+        if cat_col:
+            ddf = df_try.groupby(cat_col).size().reset_index(name="count").sort_values("count", ascending=False)
+            fig_pie = px.pie(ddf, names=cat_col, values="count", title="Category distribution")
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.info("No category column detected for donut. Upload with 'category' column.")
+    else:
+        st.info("No data for donut.")
+except Exception as e:
+    st.warning(f"Donut plot error: {e}")
+    
                 # Line / bar trend
                 st.markdown("#### Trend (bar / line)")
                 try:
