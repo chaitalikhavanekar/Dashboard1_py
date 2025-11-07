@@ -997,21 +997,24 @@ try:
             st.plotly_chart(fig_tr, use_container_width=True)
         else:
             st.info("Could not auto-detect date/value for trend. Upload CSV with 'date' and numeric 'value' columns.")
+with left:
+    # line charts, donut, etc.
+    ...
 except Exception as e:
     st.warning(f"Trend plot error: {e}")
-    
-            with right:
-                st.markdown(f"### {sec.upper()} — Press releases & News")
-                # press / official data
-                if sec == "cpi":
-                    show_press_and_news("CPI India", resource_id=CPI_RESOURCE_ID, uploaded_df=cpi_df_up)
-                elif sec == "iip":
-                    show_press_and_news("Index of Industrial Production India", resource_id=IIP_RESOURCE_ID, uploaded_df=iip_df_up)
-                elif sec == "gdp":
-                    show_press_and_news("GDP India", resource_id=GDP_RESOURCE_ID, uploaded_df=gdp_df_up)
-                else:
-                    show_press_and_news("unemployment India", resource_id=None, uploaded_df=None)
 
+with right:
+    st.markdown(f"### {sec.upper()} — Press releases & News")
+    # press / official data
+    if sec == "cpi":
+        show_press_and_news("CPI India", resource_id=CPI_RESOURCE_ID, uploaded_df=cpi_df_up)
+    elif sec == "iip":
+        show_press_and_news("Index of Industrial Production India", resource_id=IIP_RESOURCE_ID, uploaded_df=iip_df_up)
+    elif sec == "gdp":
+        show_press_and_news("GDP India", resource_id=GDP_RESOURCE_ID, uploaded_df=gdp_df_up)
+    else:
+        show_press_and_news("Unemployment India", resource_id=None, uploaded_df=None)
+        
     # end of sections
 
 # render the macro detail if a panel is open
