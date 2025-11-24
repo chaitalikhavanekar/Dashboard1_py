@@ -262,11 +262,46 @@ def fetch_google_rss(query, n=10, country="IN"):
         return []
 
 def fetch_news(query, n=8):
-    res = fetch_newsapi(query, n=n) if NEWSAPI_KEY else None
-    if res:
-        return res
-    return fetch_google_rss(query, n=n)
+    """Get news, but keep only today's articles (UTC) and sort newest first."""
+    raw = fetch_newsapi(query, n=n) if NEWSAPI_KEY else None
+    if not raw:
+        raw = fetch_google_rss(query, n=n)
 
+    if not raw:
+        return []
+
+    today = pd.Timestamp.utcnow().normalize()
+    tomorrow = today + pd.Timedelta(days=1)
+
+    filtered = []
+    for a in raw:
+        ts = a.get("publishedAt") or a.get("published") or ""
+        try:
+            dt = pd.to_datetime(ts, utc=True)
+        except Exception:
+            dt = None
+
+        # keep only today's stories
+        if dt is not None:
+            d = dt.normalize()
+            if not (today <= d < tomorrow):
+                continue
+
+        filtered.append(a)
+
+    if not filtered:
+        filtered = raw
+
+    def _dt(a):
+        ts = a.get("publishedAt") or a.get("published") or ""
+        try:
+            return pd.to_datetime(ts, utc=True)
+        except Exception:
+            return pd.Timestamp.min
+
+    filtered = sorted(filtered, key=_dt, reverse=True)
+    return filtered[:n]
+    
 def sentiment_label(text):
     try:
         tb = TextBlob(text or "")
