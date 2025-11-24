@@ -163,7 +163,7 @@ requests_cache.install_cache("news_cache", expire_after=180)
 
 # caching TTLs for streamlit
 NEWS_TTL = 120
-MARKET_TTL = 60
+MARKET_TTL = 10   # was 60 → now refresh every ~10 seconds
 MACRO_TTL = 1800
 
 # debug log
@@ -485,9 +485,16 @@ init_personalization()
 st.sidebar.title("Controls & Settings")
 search_query = st.sidebar.text_input("Search query", value="India economy OR RBI OR MOSPI OR inflation OR GDP OR infrastructure")
 headlines_count = st.sidebar.slider("Headlines to show", min_value=3, max_value=20, value=6)
-auto_ref = st.sidebar.selectbox("Auto-refresh", options=["Off","30s","1m","5m"], index=2)
+# --- Sidebar basic controls ---
+auto_ref = st.sidebar.selectbox(
+    "Auto-refresh indices & news",
+    options=["Off", "30s", "1m", "5m"],
+    index=1  # default = 30s so you see movement without changing anything
+)
+
 stock_input = st.sidebar.text_input("Single stock (one symbol)", value="RELIANCE.NS")
 st.sidebar.markdown("---")
+
 # --- Interests (for personalization) ---
 st.sidebar.markdown("### 🧠 Interests for personalization")
 
@@ -500,19 +507,22 @@ interests = st.sidebar.multiselect(
 if st.sidebar.button("Save interests"):
     st.session_state["interests"] = interests
 
-# ✅ FIXED INDENTATION HERE
+# Manual hard refresh button
 if st.sidebar.button("Refresh now"):
-    requests.cache_clear()
+    requests_cache.clear()   # clear HTTP cache
+    st.cache_data.clear()    # clear Streamlit cached data
     st.experimental_rerun()
-# parse auto_ref seconds
-interval_map = {"Off":0,"30s":30,"1m":60,"5m":300}
-interval_seconds = interval_map.get(auto_ref, 0)
-if HAS_AUTOREF and interval_seconds > 0:
-    tick = st_autorefresh(interval=interval_seconds*1000, key="autorefresh_counter")
-    st.sidebar.caption(f"Auto-refresh ticks: {tick}")
-elif interval_seconds > 0:
-    st.sidebar.info("Auto-refresh set; install streamlit-autorefresh for automatic reloads.")
 
+# --- Auto-refresh handling (indices + news) ---
+interval_map = {"Off": 0, "30s": 30, "1m": 60, "5m": 300}
+interval_seconds = interval_map.get(auto_ref, 0)
+
+if HAS_AUTOREF and interval_seconds > 0:
+    tick = st_autorefresh(interval=interval_seconds * 1000, key="autorefresh_counter")
+    st.sidebar.caption(f"🔁 Auto-refresh every {interval_seconds}s (ticks: {tick})")
+elif interval_seconds > 0:
+    st.sidebar.info("Auto-refresh requested — install 'streamlit-autorefresh' to enable it.")
+    
 # ---------- Top header & indices ----------
 st.markdown("<h1>📰 News & Insights — India Economic Intelligence</h1>", unsafe_allow_html=True)
 st.markdown("<div class='small-muted'>Live economic, policy, infrastructure, employment, markets & corporate news — personalized feed</div>", unsafe_allow_html=True)
