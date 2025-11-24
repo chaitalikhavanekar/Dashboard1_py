@@ -261,56 +261,61 @@ def fetch_google_rss(query, n=10, country="IN"):
         log(f"google rss error: {e}")
         return []
 
-def fetch_news(query, n=8):
+# REPLACE your existing fetch_news(...) with this function
+def fetch_news(query, n=8, only_today=False):
     """
-    Get news but keep only articles from *today* (India time),
-    and sort so the latest headline is at the top.
+    Fetch news via NewsAPI (if available) or Google News RSS fallback.
+    - query: search query string
+    - n: number of articles to return
+    - only_today: if True, keep only articles published on the same UTC date as now
     """
-    raw = fetch_newsapi(query, n=n) if NEWSAPI_KEY else None
-    if not raw:
-        raw = fetch_google_rss(query, n=n)
+    # helper to parse publication time robustly into timezone-aware Timestamp (UTC)
+    def _parse_pub_to_utc(pub):
+        try:
+            # handle cases where publishedAt is already numeric/pandas Timestamp/struct_time/etc.
+            ts = pd.to_datetime(pub, utc=True)
+            # pd.to_datetime(..., utc=True) returns tz-aware (UTC) or NaT on failure
+            if pd.isna(ts):
+                return None
+            return ts
+        except Exception:
+            # last-resort: try to create a UTC now marker if parsing fails (so it'll be filtered out if only_today=True)
+            try:
+                return pd.Timestamp.now(tz="UTC")
+            except Exception:
+                return None
 
-    if not raw:
+    # perform fetch via NewsAPI (preferential) if configured; else fallback to Google RSS
+    res = fetch_newsapi(query, n=n) if NEWSAPI_KEY else None
+    if res:
+        out = res
+    else:
+        out = fetch_google_rss(query, n=n)
+
+    if not out:
         return []
 
-    # --- define "today" in IST (Asia/Kolkata) ---
-    now_utc = pd.Timestamp.utcnow().tz_localize("UTC")
-    now_ist = now_utc.tz_convert("Asia/Kolkata")
-    today_ist = now_ist.normalize()
-    tomorrow_ist = today_ist + pd.Timedelta(days=1)
+    # normalize: ensure each item has 'title', 'summary' (or description), 'url', 'publishedAt'
+    normalized = []
+    for a in out[:n]:
+        item = {
+            "title": a.get("title") or a.get("headline") or "",
+            "summary": a.get("summary") or a.get("description") or a.get("content") or "",
+            "url": a.get("url") or a.get("link") or "",
+            "source": (a.get("source") or {}).get("name") if isinstance(a.get("source"), dict) else a.get("source"),
+            "publishedAt_raw": a.get("publishedAt") or a.get("published") or a.get("pubDate") or ""
+        }
+        # parse to timezone-aware UTC timestamp
+        item["publishedAt"] = _parse_pub_to_utc(item["publishedAt_raw"])
+        normalized.append(item)
 
-    filtered = []
-    for a in raw:
-        ts = a.get("publishedAt") or a.get("published") or ""
-        try:
-            dt = pd.to_datetime(ts, utc=True)  # parse as UTC
-        except Exception:
-            dt = None
+    # if only_today requested, keep only articles published on same UTC date as now
+    if only_today:
+        now_utc = pd.Timestamp.now(tz="UTC")
+        today_utc = now_utc.date()
+        normalized = [it for it in normalized if it.get("publishedAt") is not None and it["publishedAt"].date() == today_utc]
 
-        if dt is not None:
-            dt_ist = dt.tz_convert("Asia/Kolkata")
-            d = dt_ist.normalize()
-
-            # keep only stories whose date (IST) is today
-            if not (today_ist <= d < tomorrow_ist):
-                continue
-
-        filtered.append(a)
-
-    # if, for some reason, nothing matches today, fall back to all
-    if not filtered:
-        filtered = raw
-
-    # sort newest → oldest
-    def _dt(a):
-        ts = a.get("publishedAt") or a.get("published") or ""
-        try:
-            return pd.to_datetime(ts, utc=True)
-        except Exception:
-            return pd.Timestamp.min
-
-    filtered = sorted(filtered, key=_dt, reverse=True)
-    return filtered[:n]
+    return normalized
     
 def sentiment_label(text):
     try:
