@@ -262,7 +262,10 @@ def fetch_google_rss(query, n=10, country="IN"):
         return []
 
 def fetch_news(query, n=8):
-    """Get news, but keep only today's articles (UTC) and sort newest first."""
+    """
+    Get news but keep only articles from *today* (India time),
+    and sort so the latest headline is at the top.
+    """
     raw = fetch_newsapi(query, n=n) if NEWSAPI_KEY else None
     if not raw:
         raw = fetch_google_rss(query, n=n)
@@ -270,28 +273,35 @@ def fetch_news(query, n=8):
     if not raw:
         return []
 
-    today = pd.Timestamp.utcnow().normalize()
-    tomorrow = today + pd.Timedelta(days=1)
+    # --- define "today" in IST (Asia/Kolkata) ---
+    now_utc = pd.Timestamp.utcnow().tz_localize("UTC")
+    now_ist = now_utc.tz_convert("Asia/Kolkata")
+    today_ist = now_ist.normalize()
+    tomorrow_ist = today_ist + pd.Timedelta(days=1)
 
     filtered = []
     for a in raw:
         ts = a.get("publishedAt") or a.get("published") or ""
         try:
-            dt = pd.to_datetime(ts, utc=True)
+            dt = pd.to_datetime(ts, utc=True)  # parse as UTC
         except Exception:
             dt = None
 
-        # keep only today's stories
         if dt is not None:
-            d = dt.normalize()
-            if not (today <= d < tomorrow):
+            dt_ist = dt.tz_convert("Asia/Kolkata")
+            d = dt_ist.normalize()
+
+            # keep only stories whose date (IST) is today
+            if not (today_ist <= d < tomorrow_ist):
                 continue
 
         filtered.append(a)
 
+    # if, for some reason, nothing matches today, fall back to all
     if not filtered:
         filtered = raw
 
+    # sort newest → oldest
     def _dt(a):
         ts = a.get("publishedAt") or a.get("published") or ""
         try:
