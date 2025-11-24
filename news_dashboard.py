@@ -264,37 +264,62 @@ def fetch_google_rss(query, n=10, country="IN"):
 # REPLACE your existing fetch_news(...) with this function
 def fetch_news(query, n=8, only_today=False):
     """
-    Fetch news via NewsAPI (if available) or Google News RSS fallback.
-    - query: search query string
-    - n: number of articles to return
-    - only_today: if True, keep only articles published on the same UTC date as now
+    Fetch news via NewsAPI or Google RSS fallback.
+    - only_today=True → keeps only IST-date articles
     """
-    # helper to parse publication time robustly into timezone-aware Timestamp (UTC)
+
+    # --- helper to parse raw publishedAt into timezone-aware UTC timestamp ---
     def _parse_pub_to_utc(pub):
         try:
-            # handle cases where publishedAt is already numeric/pandas Timestamp/struct_time/etc.
-            ts = pd.to_datetime(pub, utc=True)
-            # pd.to_datetime(..., utc=True) returns tz-aware (UTC) or NaT on failure
+            ts = pd.to_datetime(pub, utc=True, errors="coerce")
             if pd.isna(ts):
                 return None
-            return ts
+            return ts  # tz-aware UTC timestamp
         except Exception:
-            # last-resort: try to create a UTC now marker if parsing fails (so it'll be filtered out if only_today=True)
-            try:
-                return pd.Timestamp.now(tz="UTC")
-            except Exception:
-                return None
+            return None
 
-    # perform fetch via NewsAPI (preferential) if configured; else fallback to Google RSS
+    # --- choose source: NewsAPI (if key exists) else Google RSS ---
     res = fetch_newsapi(query, n=n) if NEWSAPI_KEY else None
     if res:
-        out = res
+        raw = res
     else:
-        out = fetch_google_rss(query, n=n)
+        raw = fetch_google_rss(query, n=n)
 
-    if not out:
+    if not raw:
         return []
 
+    # --- normalize records ---
+    cleaned = []
+    for a in raw[:n]:
+        item = {
+            "title": a.get("title") or "",
+            "summary": a.get("summary") or a.get("description") or "",
+            "url": a.get("url") or a.get("link") or "",
+            "source": (a.get("source") or {}).get("name") if isinstance(a.get("source"), dict) else a.get("source"),
+            "publishedAt_raw": a.get("publishedAt") or a.get("published") or a.get("pubDate") or "",
+        }
+        # convert to UTC timestamp
+        item["publishedAt"] = _parse_pub_to_utc(item["publishedAt_raw"])
+        cleaned.append(item)
+
+    # --- filter ONLY TODAY'S NEWS (IST) ---
+    if only_today:
+        now_ist = pd.Timestamp.now(tz="Asia/Kolkata")
+        today_ist = now_ist.date()
+
+        filtered = []
+        for it in cleaned:
+            ts = it.get("publishedAt")
+            if ts is None:
+                continue
+            ts_ist = ts.tz_convert("Asia/Kolkata")
+            if ts_ist.date() == today_ist:
+                filtered.append(it)
+
+        cleaned = filtered
+
+    return cleaned
+    
     # normalize: ensure each item has 'title', 'summary' (or description), 'url', 'publishedAt'
     normalized = []
     for a in out[:n]:
@@ -511,7 +536,7 @@ st.markdown("---")
 
 # ---------- Fetch news ----------
 with st.spinner("Fetching news..."):
-    raw_news = fetch_news(search_query, n=headlines_count)
+    raw_news = fetch_news(search_query, n=headlines_count, only_today=True)
     if not raw_news:
         st.info("No news found for this query (NewsAPI may be required). Using broader search.")
         raw_news = fetch_news(search_query.split(" ")[0], n=headlines_count)  # fallback attempt
