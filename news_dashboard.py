@@ -831,203 +831,294 @@ def render_macro_detail():
     if not panel:
         return
 
-    # top breadcrumb + back button
-    st.button("← Back to Overview", key="back_macro", on_click=lambda: st.session_state.update({"macro_panel": None}))
-    st.markdown(f"<h3 style='margin-top:6px'>Detailed macro dashboard — {panel.upper()}</h3>", unsafe_allow_html=True)
-    st.markdown("<div class='small-muted'>Data-driven visualizations, press releases and sentiment-labeled related news</div>", unsafe_allow_html=True)
+    # header + back button
+    st.button(
+        "← Back to Overview",
+        key="back_macro",
+        on_click=lambda: st.session_state.update({"macro_panel": None})
+    )
+    st.markdown(
+        f"<h3 style='margin-top:6px'>Detailed macro dashboard — {panel.upper()}</h3>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<div class='small-muted'>Data-driven visualizations, press releases and related news</div>",
+        unsafe_allow_html=True,
+    )
     st.markdown("")
 
-    # Single page with four accordion sections: GDP, CPI, IIP, Unemployment
+    # We always show the four sections, with the clicked one opened by default
     sections = ["gdp", "cpi", "iip", "unemp"]
+
     for sec in sections:
-        open_key = f"open_section_{sec}"
         with st.expander(sec.upper(), expanded=(sec == panel)):
-            # left: visualizations (map + donut + line/bar)
-            left, right = st.columns([2,1])
+            left, right = st.columns([2, 1])
+
+            # ---------- pick data frame for this section ----------
+            if sec == "cpi":
+                df_try = cpi_data_gov if cpi_data_gov is not None else cpi_df_up
+            elif sec == "iip":
+                df_try = iip_data_gov if iip_data_gov is not None else iip_df_up
+            elif sec == "gdp":
+                df_try = gdp_data_gov if gdp_data_gov is not None else gdp_df_up
+            else:  # unemployment – only from upload for now
+                df_try = unemp_df_up
+
+            # ========== LEFT COLUMN: CHARTS ==========
             with left:
-                st.markdown(f"### {sec.upper()} — Visualizations")
-                # 1) Map (choropleth) — try to plot if we have state-level values
-                df_try = None
-if sec == "cpi":
-    df_try = cpi_data_gov or cpi_df_up
+                st.markdown(f"### {sec.upper()} — Visualisations")
 
-elif sec == "iip":
-    df_try = iip_data_gov or iip_df_up
+                # ---------- special animated GDP chart ----------
+                if sec == "gdp":
+                    if df_try is None:
+                        st.info("Upload / link GDP data (quarter & growth %) to see the animation.")
+                    else:
+                        import plotly.graph_objects as go
+                        from plotly.subplots import make_subplots
+                        import pandas as pd
 
-elif sec == "gdp":
-    # === GDP ANIMATED VISUALIZATION ===
-    st.markdown("### 💹 Quarter-wise GDP Growth (Animated)")
-    ...
-    st.caption("Source – MoSPI Press Note (29 Aug 2025)")
+                        cols = list(df_try.columns)
+                        date_col = next(
+                            (c for c in cols if "quarter" in c.lower() or "date" in c.lower()),
+                            cols[0],
+                        )
+                        growth_col = next(
+                            (c for c in cols if "growth" in c.lower() or "%" in c.lower()),
+                            None,
+                        )
 
-    frame_speed = st.sidebar.slider(
-        "GDP animation speed (ms per frame)",
-        min_value=100, max_value=1200, value=400, step=50,
-        key="gdp_speed"
-    )
+                        # If we can't find a growth column, just do a simple line chart
+                        if growth_col is None:
+                            tmp = df_try.copy()
+                            tmp[date_col] = tmp[date_col].astype(str)
+                            fig_simple = px.line(
+                                tmp,
+                                x=date_col,
+                                y=tmp.columns[1],
+                                markers=True,
+                                title="Quarter-wise Real GDP Growth (%)",
+                            )
+                            st.plotly_chart(fig_simple, use_container_width=True)
+                        else:
+                            value_col = growth_col  # chart is on growth rates
+                            tmp = df_try[[date_col, value_col]].copy()
+                            tmp[date_col] = tmp[date_col].astype(str)
+                            tmp[value_col] = pd.to_numeric(
+                                tmp[value_col]
+                                .astype(str)
+                                .str.replace("%", "")
+                                .str.replace(",", ""),
+                                errors="coerce",
+                            )
+                            tmp = tmp.dropna(subset=[value_col])
 
-    df_gdp = gdp_df_up or gdp_data_gov
-    if df_gdp is None or (hasattr(df_gdp, "empty") and df_gdp.empty):
-        st.info("Upload or link GDP data (quarter, value, growth %) to see animation.")
-    else:
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
+                            x = tmp[date_col].tolist()
+                            y = tmp[value_col].tolist()
 
-        # auto-detect columns
-        cols = [c.lower() for c in df_gdp.columns]
-        date_col = next((c for c in df_gdp.columns if "quarter" in c.lower() or "date" in c.lower()), df_gdp.columns[0])
-        val_col  = next((c for c in df_gdp.columns if "gdp" in c.lower() or "value" in c.lower() or "amount" in c.lower()), df_gdp.columns[1])
-        growth_col = next((c for c in df_gdp.columns if "growth" in c.lower() or "%" in c.lower()), None)
+                            frame_speed = st.sidebar.slider(
+                                "GDP animation speed (ms per frame)",
+                                min_value=100,
+                                max_value=1200,
+                                value=400,
+                                step=50,
+                                key="gdp_speed",
+                            )
 
-        df = df_gdp[[date_col, val_col] + ([growth_col] if growth_col else [])].copy()
-        df[date_col] = df[date_col].astype(str)
-        for c in [val_col, growth_col]:
-            if c in df:
-                df[c] = pd.to_numeric(df[c].astype(str).str.replace("%","").str.replace(",",""), errors="coerce")
+                            fig = go.Figure(
+                                data=[go.Scatter(x=[], y=[], mode="lines+markers")]
+                            )
+                            frames = []
+                            for k in range(1, len(x) + 1):
+                                frames.append(
+                                    go.Frame(
+                                        data=[
+                                            go.Scatter(
+                                                x=x[:k],
+                                                y=y[:k],
+                                                mode="lines+markers",
+                                            )
+                                        ],
+                                        name=f"f{k}",
+                                    )
+                                )
 
-        # make animated frames
-        x = df[date_col].tolist()
-        y_val = df[val_col].tolist()
-        y_growth = df[growth_col].tolist() if growth_col else [None]*len(x)
+                            fig.frames = frames
+                            fig.update_layout(
+                                title="Quarter-wise Real GDP Growth (%) — animated",
+                                xaxis_title="Quarter",
+                                yaxis_title="Growth (%)",
+                                updatemenus=[
+                                    {
+                                        "type": "buttons",
+                                        "buttons": [
+                                            {
+                                                "label": "Play",
+                                                "method": "animate",
+                                                "args": [
+                                                    None,
+                                                    {
+                                                        "frame": {
+                                                            "duration": frame_speed,
+                                                            "redraw": True,
+                                                        },
+                                                        "fromcurrent": True,
+                                                    },
+                                                ],
+                                            },
+                                            {
+                                                "label": "Pause",
+                                                "method": "animate",
+                                                "args": [
+                                                    [None],
+                                                    {
+                                                        "frame": {"duration": 0},
+                                                        "mode": "immediate",
+                                                    },
+                                                ],
+                                            },
+                                        ],
+                                    }
+                                ],
+                                height=420,
+                                template="plotly_white",
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
 
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        frames = []
-        for k in range(1, len(x)+1):
-            frames.append(
-                go.Frame(
-                    data=[
-                        go.Bar(x=x[:k], y=y_val[:k], name="GDP ₹ Cr", marker_color="#1f77b4"),
-                        go.Scatter(x=x[:k], y=y_growth[:k], mode="lines+markers",
-                                   line=dict(color="#d62728", width=3),
-                                   marker=dict(size=8, color="#fff", line=dict(color="#d62728", width=2)),
-                                   name="Growth %")
-                    ],
-                    name=f"f{k}"
-                )
-            )
+                # ---------- generic donut + trend for all sections ----------
+                if df_try is not None:
+                    # Donut / distribution
+                    st.markdown("#### Distribution (donut)")
+                    try:
+                        cat_col = next(
+                            (
+                                c
+                                for c in df_try.columns
+                                if any(
+                                    x in c.lower()
+                                    for x in [
+                                        "category",
+                                        "group",
+                                        "component",
+                                        "sector",
+                                        "item",
+                                    ]
+                                )
+                            ),
+                            None,
+                        )
+                        if cat_col:
+                            ddf = (
+                                df_try.groupby(cat_col)
+                                .size()
+                                .reset_index(name="count")
+                                .sort_values("count", ascending=False)
+                            )
+                            fig_pie = px.pie(
+                                ddf,
+                                names=cat_col,
+                                values="count",
+                                title="Category distribution",
+                            )
+                            st.plotly_chart(fig_pie, use_container_width=True)
+                        else:
+                            st.info(
+                                "No categorical column (category / sector / group) found for donut chart."
+                            )
+                    except Exception as e:
+                        st.warning(f"Donut plot error: {e}")
 
-        fig.add_trace(go.Bar(x=[], y=[], name="GDP ₹ Cr", marker_color="#1f77b4"), secondary_y=False)
-        fig.add_trace(go.Scatter(x=[], y=[], name="Growth %", mode="lines+markers",
-                                 line=dict(color="#d62728", width=3)), secondary_y=True)
+                    # Trend line
+                    st.markdown("#### Trend over time")
+                    try:
+                        cols = list(df_try.columns)
+                        date_col = next(
+                            (
+                                c
+                                for c in cols
+                                if any(
+                                    x in c.lower()
+                                    for x in ["date", "month", "year", "quarter"]
+                                )
+                            ),
+                            None,
+                        )
+                        value_col = next(
+                            (
+                                c
+                                for c in cols
+                                if any(
+                                    x in c.lower()
+                                    for x in [
+                                        "value",
+                                        "index",
+                                        "gdp",
+                                        "cpi",
+                                        "iip",
+                                        "growth",
+                                        "rate",
+                                        "percent",
+                                        "%",
+                                    ]
+                                )
+                            ),
+                            None,
+                        )
 
-        fig.frames = frames
-        fig.update_layout(
-            title="Quarter-wise Real GDP & Growth Rate (Animated)",
-            yaxis=dict(title="GDP (₹ Crore)"),
-            yaxis2=dict(title="Growth (%)", overlaying="y", side="right"),
-            updatemenus=[{
-                "type": "buttons",
-                "buttons": [
-                    {"label": "Play", "method": "animate",
-                     "args": [None, {"frame": {"duration": frame_speed, "redraw": True},
-                                     "fromcurrent": True,
-                                     "transition": {"duration": int(frame_speed/3), "easing": "cubic-in-out"}}]},
-                    {"label": "Pause", "method": "animate",
-                     "args": [[None], {"frame": {"duration": 0}, "mode": "immediate"}]}
-                ],
-                "x": 0.0, "y": 1.15, "showactive": True
-            }],
-            height=450,
-            template="plotly_white"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-for sec in sections:
-    if sec == "cpi":
-        ...
-    elif sec == "iip":
-        ...
-    elif sec == "gdp":
-        ...
-    elif sec == "unemployment":
-        ...
-        
-                # Map: if df has state column and value column
-    elif sec == "unemployment":
-        plotted = False
-        if df_try is not None and not df_try.empty:
-                    cols = df_try.columns.tolist()
-                    state_col = next((c for c in cols if "state" in c.lower() or "region" in c.lower()), None)
-                    value_col = next((c for c in cols if any(x in c.lower() for x in ["value","index","amount","gdp","cpi","iip","growth","percent","%","rate"])), None)
-                    date_col = next((c for c in cols if "date" in c.lower() or "month" in c.lower() or "year" in c.lower() or "quarter" in c.lower()), None)
-                    if state_col and value_col:
-                        try:
-                            tmp = df_try[[state_col, value_col]].copy()
-                            tmp = tmp.dropna()
-                            # try a simple bar if geo not available (safe)
-                            fig_map = px.bar(tmp.sort_values(value_col, ascending=False).head(20),
-                                             x=value_col, y=state_col, orientation="h",
-                                             title=f"Top states by {sec.upper()} value")
-                            st.plotly_chart(fig_map, use_container_width=True)
-                            plotted = True
-                        except Exception as e:
-                            log(f"plot map error: {e}")
-if not plotted:
-    st.info("Map / state-level plot not auto-detectable. Upload state-level CSV with 'state' + 'value' columns.")
+                        if date_col and value_col:
+                            tmp = df_try.copy()
+                            tmp[date_col] = pd.to_datetime(
+                                tmp[date_col], errors="coerce"
+                            )
+                            tmp = tmp.dropna(subset=[date_col, value_col]).sort_values(
+                                date_col
+                            )
+                            fig_tr = px.line(
+                                tmp,
+                                x=date_col,
+                                y=value_col,
+                                title=f"{sec.upper()} trend",
+                                markers=True,
+                            )
+                            st.plotly_chart(fig_tr, use_container_width=True)
+                        else:
+                            st.info(
+                                "Could not auto-detect date / value columns for trend chart."
+                            )
+                    except Exception as e:
+                        st.warning(f"Trend plot error: {e}")
+                else:
+                    st.info(
+                        "No data available for this indicator. Upload a CSV/PDF in the admin panel."
+                    )
 
-# Donut / Pie section starts here
-st.markdown("#### Distribution (donut)")
-try:
-    if df_try is not None and not df_try.empty:
-        # quick group by if category present
-        cat_col = next((c for c in df_try.columns if any(x in c.lower() for x in ["category","group","component","sector","item"])), None)
-        if cat_col:
-            ddf = df_try.groupby(cat_col).size().reset_index(name="count").sort_values("count", ascending=False)
-            fig_pie = px.pie(ddf, names=cat_col, values="count", title="Category distribution")
-            st.plotly_chart(fig_pie, use_container_width=True)
-        else:
-            st.info("No category column detected for donut. Upload with 'category' column.")
-    else:
-        st.info("No data for donut.")
-except Exception as e:
-    st.warning(f"Donut plot error: {e}")
-
-# Line / bar trend
-st.markdown("### Trend (bar / line)")
-try:
-    if df_try is not None and not df_try.empty:
-        # select date + value if possible
-        cols = df_try.columns.tolist()
-        date_col = next((c for c in cols if "date" in c.lower() or "month" in c.lower() or "year" in c.lower()), None)
-        value_col = next((c for c in cols if any(x in c.lower() for x in ["value", "index", "gdp", "cpi", "iip", "growth", "rate", "percent", "%"])), None)
-
-        if date_col and value_col:
-            tmp = df_try.copy()
-            tmp[date_col] = pd.to_datetime(tmp[date_col], errors="coerce")
-            tmp = tmp.dropna(subset=[date_col, value_col]).sort_values(date_col)
-            fig_tr = px.line(tmp, x=date_col, y=value_col, title=f"{sec.upper()} Trend", markers=True)
-            st.plotly_chart(fig_tr, use_container_width=True)
-        else:
-            st.info("Could not auto-detect date/value for trend. Upload CSV with 'date' and numeric 'value' columns.")
-    else:
-        st.info("No data available for trend chart.")
-except Exception as e:
-    st.warning(f"Trend plot error: {e}")
-
-# ✅ Layout columns start after try-except block
-left, right = st.columns([2, 1])
-
-with left:
-    st.markdown("### GDP Visualization Area")
-
-with right:
-    st.markdown(f"### {sec.upper()} — Press Releases & News")
-    if sec == "cpi":
-        show_press_and_news("CPI India", resource_id=CPI_RESOURCE_ID, uploaded_df=cpi_df_up)
-    elif sec == "iip":
-        show_press_and_news("Index of Industrial Production India", resource_id=IIP_RESOURCE_ID, uploaded_df=iip_df_up)
-    elif sec == "gdp":
-        show_press_and_news("GDP India", resource_id=GDP_RESOURCE_ID, uploaded_df=gdp_df_up)
-    else:
-        show_press_and_news("Unemployment India", resource_id=None, uploaded_df=None)
-        
-    # end of sections
-
-# render the macro detail if a panel is open
-try:
-    render_macro_detail()
-except Exception as e:
-    st.error(f"Macro dashboard render error: {e}")
-    
+            # ========== RIGHT COLUMN: PRESS RELEASES + NEWS ==========
+            with right:
+                st.markdown(f"### {sec.upper()} — Press releases & News")
+                if sec == "cpi":
+                    show_press_and_news(
+                        "CPI India",
+                        resource_id=CPI_RESOURCE_ID,
+                        uploaded_df=cpi_df_up,
+                    )
+                elif sec == "iip":
+                    show_press_and_news(
+                        "Index of Industrial Production India",
+                        resource_id=IIP_RESOURCE_ID,
+                        uploaded_df=iip_df_up,
+                    )
+                elif sec == "gdp":
+                    show_press_and_news(
+                        "GDP India",
+                        resource_id=GDP_RESOURCE_ID,
+                        uploaded_df=gdp_df_up,
+                    )
+                else:
+                    show_press_and_news(
+                        "Unemployment India",
+                        resource_id=None,
+                        uploaded_df=unemp_df_up,
+                    )
+                    
 # ---------- Single-stock deep dive ----------
 st.markdown("---")
 st.markdown("## 💹 Stock — Single Symbol Deep Dive (Chart + Corporate Actions + Related News)")
