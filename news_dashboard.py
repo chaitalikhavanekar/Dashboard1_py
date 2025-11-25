@@ -1468,21 +1468,23 @@ c5.metric("Low", f"₹{low_price:,.2f}")
 c6.metric("Volume", f"{volume:,}")
 st.caption(f"🕒 Last Updated: {latest['Date']} | Sentiment: {sentiment}")
 
-            # --- Line chart for price trend ---
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=data["Date"], y=data["Close"],
-                mode="lines", name="Price",
-                line=dict(color=color, width=2)
-            ))
-            fig.update_layout(
-                title=f"{stock_input} — {selected_label} Trend",
-                yaxis_title="Price (₹)",
-                xaxis_title="Date",
-                template="plotly_white",
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
+# --- Line chart for price trend ---
+import plotly.graph_objects as go
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(
+    x=data["Date"], y=data["Close"],
+    mode="lines", name="Price",
+    line=dict(color=color, width=2)
+))
+fig.update_layout(
+    title=f"{stock_input} — {selected_label} Trend",
+    yaxis_title="Price (₹)",
+    xaxis_title="Date",
+    template="plotly_white",
+    height=400
+)
+st.plotly_chart(fig, use_container_width=True)
 
             # --- Moving averages ---
             st.markdown("### 📊 Moving Averages (Trend Analysis)")
