@@ -997,6 +997,34 @@ try:
 except Exception as e:
     log(f"macro fetch error: {e}")
 
+# -------- Demo fallback data if API + uploads are empty --------
+if cpi_data_gov is None and cpi_df_up is None:
+    # 12 months of fake CPI inflation
+    dates = pd.date_range("2024-01-01", periods=12, freq="M")
+    cpi_data_gov = pd.DataFrame({
+        "Month": dates,
+        "CPI_Inflation_rate": [5.2, 5.0, 4.8, 4.5, 4.3, 4.1, 3.9, 4.0, 4.2, 4.4, 4.6, 4.7],
+    })
+
+if iip_data_gov is None and iip_df_up is None:
+    # 12 months of fake IIP growth
+    dates = pd.date_range("2024-01-01", periods=12, freq="M")
+    iip_data_gov = pd.DataFrame({
+        "Month": dates,
+        "IIP_Growth_percent": [2.3, 3.1, 4.0, 3.8, 4.5, 5.1, 4.9, 5.3, 5.0, 4.7, 4.9, 5.2],
+    })
+
+if gdp_data_gov is None and gdp_df_up is None:
+    # 8 quarters of fake GDP growth
+    quarters = [
+        "Q1 2023-24", "Q2 2023-24", "Q3 2023-24", "Q4 2023-24",
+        "Q1 2024-25", "Q2 2024-25", "Q3 2024-25", "Q4 2024-25",
+    ]
+    gdp_data_gov = pd.DataFrame({
+        "Quarter": quarters,
+        "Real_GDP_growth_percent": [7.8, 7.2, 8.1, 7.6, 7.9, 8.2, 7.7, 8.0],
+    })
+
 # --- Small helper: get latest numeric summary from df-like object ---
 def latest_summary_from_df(df, date_cols=None, value_cols=None):
     if df is None or df.empty:
