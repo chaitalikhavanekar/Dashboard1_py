@@ -490,23 +490,80 @@ def fetch_stock_history(sym, period="1y", interval="1d"):
 
 @st.cache_data(ttl=MARKET_TTL)
 def fetch_stock_actions(sym):
+    """
+    Returns dividends, splits, news & upcoming events for a stock.
+    """
     try:
         t = yf.Ticker(sym)
+
+        # past cash actions
         divs = t.dividends if hasattr(t, "dividends") else pd.Series(dtype=float)
         splits = t.splits if hasattr(t, "splits") else pd.Series(dtype=float)
+
+        # news
         news = []
         try:
-            raw = t.news
+            raw = getattr(t, "news", None)
             if isinstance(raw, list):
-                for item in raw[:8]:
-                    news.append({"title": item.get("title"), "link": item.get("link")})
+                for item in raw[:20]:
+                    news.append(
+                        {
+                            "title": item.get("title"),
+                            "link": item.get("link"),
+                            "publisher": item.get("publisher"),
+                            "providerPublishTime": item.get("providerPublishTime"),
+                        }
+                    )
         except Exception:
             pass
-        return {"dividends": divs, "splits": splits, "news": news}
+
+        # upcoming events (earnings, meetings etc.)
+        events = []
+        try:
+            cal = getattr(t, "calendar", None)
+            if cal is not None and not cal.empty:
+                for idx, row in cal.iterrows():
+                    events.append(
+                        {
+                            "type": str(idx),
+                            "date": row.iloc[0],
+                            "detail": str(row.iloc[0]),
+                        }
+                    )
+        except Exception:
+            pass
+
+        # earnings dates (future)
+        try:
+            ed = getattr(t, "earnings_dates", None)
+            if ed is not None and not ed.empty:
+                ed = ed.reset_index()
+                for _, r in ed.tail(4).iterrows():
+                    events.append(
+                        {
+                            "type": "EARNINGS",
+                            "date": r.iloc[0],
+                            "detail": f"EPS: {r.get('EPS actual', '')} vs {r.get('EPS estimate', '')}",
+                        }
+                    )
+        except Exception:
+            pass
+
+        return {
+            "dividends": divs,
+            "splits": splits,
+            "news": news,
+            "events": events,
+        }
     except Exception as e:
         log(f"stock actions error {sym}: {e}")
-        return {"dividends": pd.Series(dtype=float), "splits": pd.Series(dtype=float), "news": []}
-
+        return {
+            "dividends": pd.Series(dtype=float),
+            "splits": pd.Series(dtype=float),
+            "news": [],
+            "events": [],
+        }
+        
 # data.gov fetch
 @st.cache_data(ttl=MACRO_TTL)
 def fetch_data_gov_resource(resource_id, limit=1000, api_key=None):
@@ -1405,8 +1462,23 @@ st.markdown("## 💹 Stock — Single Symbol Deep Dive (Chart + Corporate Action
 st.markdown("Enter symbol in sidebar (e.g., RELIANCE.NS).")
 
 if stock_input:
-    st.markdown("### 📅 Select Time Range")
 
+    # --- AUTO-DETECT CURRENCY FROM YFINANCE ---
+    t = yf.Ticker(stock_input)
+    info = t.info if hasattr(t, "info") else {}
+    currency = info.get("currency", "USD")
+
+    symbol_map = {
+        "INR": "₹",
+        "USD": "$",
+        "EUR": "€",
+        "GBP": "£"
+    }
+
+    ccy = symbol_map.get(currency, "")
+
+    st.markdown("### 📅 Select Time Range")
+    
     tab_labels = ["1D", "3M", "6M", "1Y", "2Y", "3Y", "5Y"]
     tabs = st.tabs(tab_labels)
     period_map = {
@@ -1467,11 +1539,10 @@ with c1:
         state_key=f"stock_price_{stock_input}",
     )
 
-c2.metric("Change (%)", f"{change_pct:+.2f}%")
-c3.metric("Open", f"₹{open_price:,.2f}")
-c4.metric("High", f"₹{high_price:,.2f}")
-c5.metric("Low", f"₹{low_price:,.2f}")
-c6.metric("Volume", f"{volume:,}")
+c1.metric("Price", f"{ccy}{current_price:,.2f}", f"{change_val:+.2f}")
+c3.metric("Open",  f"{ccy}{open_price:,.2f}")
+c4.metric("High",  f"{ccy}{high_price:,.2f}")
+c5.metric("Low",   f"{ccy}{low_price:,.2f}")c6.metric("Volume", f"{volume:,}")
 st.caption(f"🕒 Last Updated: {latest['Date']} | Sentiment: {sentiment}")
 
 # --- Line chart for price trend ---
@@ -1483,7 +1554,7 @@ fig.add_trace(go.Scatter(
 ))
 fig.update_layout(
     title=f"{stock_input} — {selected_label} Trend",
-    yaxis_title="Price (₹)",
+yaxis_title=f"Price ({ccy})"
     xaxis_title="Date",
     template="plotly_white",
     height=400,
@@ -1523,31 +1594,142 @@ if show_ma200:
 
 fig_ma.update_layout(
     title=f"{stock_input} — Moving Averages",
-    yaxis_title="Price (₹)",
+yaxis_title=f"Price ({ccy})"
     xaxis_title="Date",
     template="plotly_white",
     height=400,
 )
 st.plotly_chart(fig_ma, use_container_width=True)
 
-# --- Corporate Actions ---
-st.markdown("### 🏢 Corporate Actions")
+# --- Corporate actions + events in ONE table ---
+st.markdown("### 🏢 Corporate Actions & Events (Summary)")
+
 sa = fetch_stock_actions(stock_input)
 divs = sa.get("dividends")
 splits = sa.get("splits")
+events = sa.get("events", [])      # list of event dicts
+news_list = sa.get("news", [])     # list of news dicts
 
+rows = []
+
+# ---------- 1) Dividends ----------
 if not getattr(divs, "empty", True):
-    st.subheader("Dividends")
-    st.dataframe(divs.reset_index().tail(5))
-else:
-    st.info("No dividend data available.")
+    for dt, val in divs.tail(10).items():
+        rows.append(
+            {
+                "Category": "DIVIDEND",
+                "Date": pd.to_datetime(dt),
+                "Title / Detail": f"Dividend {val:.2f} per share",
+                "Extra": "",
+            }
+        )
 
+# ---------- 2) Splits ----------
 if not getattr(splits, "empty", True):
-    st.subheader("Stock Splits")
-    st.dataframe(splits.reset_index().tail(5))
-else:
-    st.info("No split data available.")
+    for dt, ratio in splits.tail(10).items():
+        rows.append(
+            {
+                "Category": "SPLIT",
+                "Date": pd.to_datetime(dt),
+                "Title / Detail": f"Split ratio {ratio}",
+                "Extra": "",
+            }
+        )
 
+# helper to classify events by text
+def classify_event(ev_type: str, detail: str) -> str:
+    t = (ev_type or "").upper()
+    d = (detail or "").lower()
+
+    # if API already sends a clear type, keep it
+    if t in {"BONUS", "BONUS ISSUE", "RIGHTS", "RIGHTS ISSUE",
+             "BUYBACK", "OFS", "BOND", "BOND ISSUE"}:
+        return t
+
+    # otherwise detect from text
+    if "bonus" in d:
+        return "BONUS ISSUE"
+    if "rights issue" in d or "rights entitlement" in d:
+        return "RIGHTS ISSUE"
+    if "buyback" in d or "buy-back" in d:
+        return "BUYBACK"
+    if "offer for sale" in d or "ofs" in d:
+        return "OFS"
+    if "bond" in d or "debenture" in d or "note issue" in d:
+        return "BOND ISSUE"
+    if "dividend" in d:
+        return "DIVIDEND"
+    if "split" in d or "sub-division" in d:
+        return "SPLIT"
+
+    # generic fallback
+    return t or "EVENT"
+
+# ---------- 3) Structured events (earnings, bonus, rights, buyback, etc.) ----------
+for ev in events[-20:]:   # latest 20
+    ev_type = ev.get("type", "")
+    detail = ev.get("detail", "")
+    cat = classify_event(ev_type, detail)
+
+    rows.append(
+        {
+            "Category": cat,
+            "Date": ev.get("date"),
+            "Title / Detail": detail,
+            "Extra": ev.get("source", ""),
+        }
+    )
+
+# ---------- 4) Important news tagged as EVENT NEWS / BUYBACK / BONUS etc. ----------
+for n in news_list[:20]:
+    headline = n.get("title", "")
+    pub = n.get("publisher", "")
+    ts = n.get("providerPublishTime")
+
+    cat = classify_event("EVENT NEWS", headline)
+
+    rows.append(
+        {
+            "Category": cat,
+            "Date": pd.to_datetime(ts, unit="s", errors="ignore") if ts else "",
+            "Title / Detail": headline,
+            "Extra": pub,
+        }
+    )
+
+# ---------- 5) Show table ----------
+if rows:
+    df_actions = (
+        pd.DataFrame(rows)
+        .sort_values(by=["Date"], ascending=False, na_position="last")
+        .reset_index(drop=True)
+    )
+    st.dataframe(df_actions, use_container_width=True)
+else:
+    st.info("No corporate actions / events found for this symbol.")
+    
+st.markdown("### 📰 Corporate Event News (Sentiment)")
+
+if news_list:
+    for item in news_list[:12]:
+        title = item.get("title") or ""
+        link = item.get("link") or ""
+        publisher = item.get("publisher") or ""
+        label, score = sentiment_label(title)
+        color = (
+            PALETTE["pos"] if label == "positive"
+            else PALETTE["neg"] if label == "negative"
+            else PALETTE["neu"]
+        )
+
+        st.markdown(
+            f"- [{title}]({link})  \n"
+            f"  <span style='color:{color}; font-weight:600'>{label.upper()}</span> ({score:+.2f}) · {publisher}",
+            unsafe_allow_html=True,
+        )
+else:
+    st.info("No recent news found for this company.")
+    
 # ---------- Footer & debug ----------
 st.markdown("---")
 st.markdown(f"<div style='color:{PALETTE['teal']}'>Last update: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</div>", unsafe_allow_html=True)
