@@ -1203,6 +1203,29 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
         return
         
 # --- Detailed dashboard panel renderer (shows four sections in tabs / collapsible) ---
+
+            # ------- Year-on-Year change chart (if enough history) -------
+            if len(tmp) >= 13:
+                st.markdown("#### Approx. Year-on-Year change (%)")
+
+                yoy_df = tmp.copy()
+                # 12-period change → works reasonably for monthly data
+                yoy_df["YoY_change_%"] = yoy_df[value_col].pct_change(periods=12) * 100
+                yoy_df = yoy_df.dropna(subset=["YoY_change_%"])
+
+                if not yoy_df.empty:
+                    fig_yoy = px.line(
+                        yoy_df,
+                        x=date_col,
+                        y="YoY_change_%"
+                    )
+                    fig_yoy.update_layout(
+                        xaxis_title="Period",
+                        yaxis_title="YoY change (%)",
+                        height=320,
+                        template="plotly_white",
+                    )
+                    st.plotly_chart(fig_yoy, use_container_width=True)
 # ------- Smooth area chart (last 24 periods) -------
             st.markdown("#### Last 24 periods (smooth area)")
             area_df = tmp.tail(24)
@@ -1225,7 +1248,7 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
                 st.markdown("#### Approx. Year-on-Year change (%)")
 
                 yoy_df = tmp.copy()
-                # 12-period change → works reasonably for monthly data
+                # 12-period change → works well for monthly data
                 yoy_df["YoY_change_%"] = yoy_df[value_col].pct_change(periods=12) * 100
                 yoy_df = yoy_df.dropna(subset=["YoY_change_%"])
 
