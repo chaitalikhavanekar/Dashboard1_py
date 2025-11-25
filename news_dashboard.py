@@ -1397,7 +1397,7 @@ def render_macro_detail():
 uploaded_df=unemp_df_up,
 )
 
-render_macro_detail()     ← ← EXACTLY LIKE THIS
+render_macro_detail()
 
 # ---------- Single-stock deep dive ----------
 st.markdown("---")
