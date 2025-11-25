@@ -1486,7 +1486,7 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-            # --- Moving averages ---
+# --- Moving averages ---
             st.markdown("### 📊 Moving Averages (Trend Analysis)")
             data["MA20"] = data["Close"].rolling(window=20).mean()
             data["MA50"] = data["Close"].rolling(window=50).mean()
@@ -1504,20 +1504,26 @@ st.plotly_chart(fig, use_container_width=True)
             if show_ma20:
                 fig_ma.add_trace(go.Scatter(
                     x=data["Date"], y=data["MA20"], mode="lines",
-                    line=dict(width=1.8, dash="dot", color="blue"), name="MA20"
+                    line=dict(width=1.8, dash="dot"), name="MA20"
                 ))
             if show_ma50:
                 fig_ma.add_trace(go.Scatter(
                     x=data["Date"], y=data["MA50"], mode="lines",
-                    line=dict(width=1.8, dash="dot", color="orange"), name="MA50"
+                    line=dict(width=1.8, dash="dot"), name="MA50"
                 ))
             if show_ma200:
                 fig_ma.add_trace(go.Scatter(
                     x=data["Date"], y=data["MA200"], mode="lines",
-                    line=dict(width=1.8, dash="dot", color="red"), name="MA200"
+                    line=dict(width=1.8, dash="dot"), name="MA200"
                 ))
 
-            fig_ma.update_layout(title=f"{stock_input} — Moving Averages", height=400)
+            fig_ma.update_layout(
+                title=f"{stock_input} — Moving Averages",
+                yaxis_title="Price (₹)",
+                xaxis_title="Date",
+                template="plotly_white",
+                height=400
+            )
             st.plotly_chart(fig_ma, use_container_width=True)
 
             # --- Corporate actions ---
