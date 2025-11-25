@@ -1199,233 +1199,154 @@ def render_macro_detail():
             else:  # unemployment – only from upload for now
                 df_try = unemp_df_up
 
-            # ========== LEFT COLUMN: CHARTS ==========
-            with left:
-                st.markdown(f"### {sec.upper()} — Visualisations")
+# ========== LEFT COLUMN: CHARTS ==========
+        with left:
+            st.markdown(f"### {sec.upper()} — Visualisations")
 
-                # ---------- special animated GDP chart ----------
-                if sec == "gdp":
-                    if df_try is None:
-                        st.info("Upload / link GDP data (quarter & growth %) to see the animation.")
+            # Only proceed if we have a proper table
+            if isinstance(df_try, pd.DataFrame) and not df_try.empty:
+                date_col, value_col = detect_date_value_columns(df_try)
+
+                if date_col and value_col:
+                    tmp = df_try.copy()
+
+                    # ---- Clean date column ----
+                    tmp[date_col] = pd.to_datetime(tmp[date_col], errors="coerce")
+
+                    # ---- Clean numeric values (remove %, commas, text) ----
+                    tmp[value_col] = (
+                        tmp[value_col]
+                        .astype(str)
+                        .str.replace(r"[^\d\.\-]", "", regex=True)
+                    )
+                    tmp[value_col] = pd.to_numeric(tmp[value_col], errors="coerce")
+
+                    tmp = tmp.dropna(subset=[date_col, value_col]).sort_values(date_col)
+
+                    if tmp.empty:
+                        st.info("Could not find clean numeric data to plot.")
                     else:
-                        import plotly.graph_objects as go
-                        from plotly.subplots import make_subplots
-                        import pandas as pd
+                        # ------- Latest metric card -------
+                        last_row = tmp.iloc[-1]
+                        latest_val = last_row[value_col]
+                        latest_dt = last_row[date_col]
 
-                        cols = list(df_try.columns)
-                        date_col = next(
-                            (c for c in cols if "quarter" in c.lower() or "date" in c.lower()),
-                            cols[0],
-                        )
-                        growth_col = next(
-                            (c for c in cols if "growth" in c.lower() or "%" in c.lower()),
-                            None,
+                        dt_str = (
+                            latest_dt.strftime("%b %Y")
+                            if not pd.isna(latest_dt)
+                            else "Latest"
                         )
 
-                        # If we can't find a growth column, just do a simple line chart
-                        if growth_col is None:
-                            tmp = df_try.copy()
-                            tmp[date_col] = tmp[date_col].astype(str)
-                            fig_simple = px.line(
-                                tmp,
-                                x=date_col,
-                                y=tmp.columns[1],
-                                markers=True,
-                                title="Quarter-wise Real GDP Growth (%)",
-                            )
-                            st.plotly_chart(fig_simple, use_container_width=True)
-                        else:
-                            value_col = growth_col  # chart is on growth rates
-                            tmp = df_try[[date_col, value_col]].copy()
-                            tmp[date_col] = tmp[date_col].astype(str)
-                            tmp[value_col] = pd.to_numeric(
-                                tmp[value_col]
-                                .astype(str)
-                                .str.replace("%", "")
-                                .str.replace(",", ""),
-                                errors="coerce",
-                            )
-                            tmp = tmp.dropna(subset=[value_col])
+                        unit = "%" if ("%" in value_col.lower() or "rate" in value_col.lower()) else ""
+                        metric_label = f"{sec.upper()} — latest"
+                        metric_value = (
+                            f"{latest_val:,.2f}{unit}"
+                            if pd.notna(latest_val) else "N/A"
+                        )
+                        st.metric(metric_label, metric_value, dt_str)
 
-                            x = tmp[date_col].tolist()
-                            y = tmp[value_col].tolist()
+                        # ===================================================
+                        #  A N I M A T E D   L I N E   C H A R T
+                        # ===================================================
+                        st.markdown("#### Animated trend over time")
 
-                            frame_speed = st.sidebar.slider(
-                                "GDP animation speed (ms per frame)",
-                                min_value=100,
-                                max_value=1200,
-                                value=400,
-                                step=50,
-                                key="gdp_speed",
-                            )
+                        # x axis as nice labels (e.g. 'Sep 2025')
+                        x_vals = tmp[date_col].dt.strftime("%b %Y").tolist()
+                        y_vals = tmp[value_col].tolist()
 
-                            fig = go.Figure(
-                                data=[go.Scatter(x=[], y=[], mode="lines+markers")]
-                            )
-                            frames = []
-                            for k in range(1, len(x) + 1):
-                                frames.append(
-                                    go.Frame(
-                                        data=[
-                                            go.Scatter(
-                                                x=x[:k],
-                                                y=y[:k],
-                                                mode="lines+markers",
-                                            )
-                                        ],
-                                        name=f"f{k}",
-                                    )
+                        fig_line = go.Figure(
+                            data=[go.Scatter(x=[], y=[], mode="lines+markers")]
+                        )
+
+                        frames = []
+                        for k in range(1, len(x_vals) + 1):
+                            frames.append(
+                                go.Frame(
+                                    data=[
+                                        go.Scatter(
+                                            x=x_vals[:k],
+                                            y=y_vals[:k],
+                                            mode="lines+markers",
+                                        )
+                                    ],
+                                    name=f"frame{k}",
                                 )
+                            )
 
-                            fig.frames = frames
-                            fig.update_layout(
-                                title="Quarter-wise Real GDP Growth (%) — animated",
-                                xaxis_title="Quarter",
-                                yaxis_title="Growth (%)",
-                                updatemenus=[
-                                    {
-                                        "type": "buttons",
-                                        "buttons": [
-                                            {
-                                                "label": "Play",
-                                                "method": "animate",
-                                                "args": [
-                                                    None,
-                                                    {
-                                                        "frame": {
-                                                            "duration": frame_speed,
-                                                            "redraw": True,
-                                                        },
-                                                        "fromcurrent": True,
+                        fig_line.frames = frames
+
+                        fig_line.update_layout(
+                            xaxis_title="Period",
+                            yaxis_title=value_col,
+                            height=360,
+                            template="plotly_white",
+                            updatemenus=[
+                                {
+                                    "type": "buttons",
+                                    "showactive": False,
+                                    "x": 0.02,
+                                    "y": 1.15,
+                                    "buttons": [
+                                        {
+                                            "label": "Play",
+                                            "method": "animate",
+                                            "args": [
+                                                None,
+                                                {
+                                                    "frame": {
+                                                        "duration": 400,
+                                                        "redraw": True,
                                                     },
-                                                ],
-                                            },
-                                            {
-                                                "label": "Pause",
-                                                "method": "animate",
-                                                "args": [
-                                                    [None],
-                                                    {
-                                                        "frame": {"duration": 0},
-                                                        "mode": "immediate",
-                                                    },
-                                                ],
-                                            },
-                                        ],
-                                    }
-                                ],
-                                height=420,
-                                template="plotly_white",
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-
-                # ---------- generic donut + trend for all sections ----------
-                if df_try is not None:
-                    # Donut / distribution
-                    st.markdown("#### Distribution (donut)")
-                    try:
-                        cat_col = next(
-                            (
-                                c
-                                for c in df_try.columns
-                                if any(
-                                    x in c.lower()
-                                    for x in [
-                                        "category",
-                                        "group",
-                                        "component",
-                                        "sector",
-                                        "item",
-                                    ]
-                                )
-                            ),
-                            None,
+                                                    "fromcurrent": True,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            "label": "Pause",
+                                            "method": "animate",
+                                            "args": [
+                                                [None],
+                                                {
+                                                    "frame": {"duration": 0},
+                                                    "mode": "immediate",
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                }
+                            ],
                         )
-                        if cat_col:
-                            ddf = (
-                                df_try.groupby(cat_col)
-                                .size()
-                                .reset_index(name="count")
-                                .sort_values("count", ascending=False)
-                            )
-                            fig_pie = px.pie(
-                                ddf,
-                                names=cat_col,
-                                values="count",
-                                title="Category distribution",
-                            )
-                            st.plotly_chart(fig_pie, use_container_width=True)
-                        else:
-                            st.info(
-                                "No categorical column (category / sector / group) found for donut chart."
-                            )
-                    except Exception as e:
-                        st.warning(f"Donut plot error: {e}")
+                        st.plotly_chart(fig_line, use_container_width=True)
 
-                    # Trend line
-                    st.markdown("#### Trend over time")
-                    try:
-                        cols = list(df_try.columns)
-                        date_col = next(
-                            (
-                                c
-                                for c in cols
-                                if any(
-                                    x in c.lower()
-                                    for x in ["date", "month", "year", "quarter"]
-                                )
-                            ),
-                            None,
+                        # ------- Static bar chart (last 12 periods) -------
+                        st.markdown("#### Last 12 periods (bar)")
+                        recent = tmp.tail(12)
+                        fig_bar = px.bar(
+                            recent,
+                            x=date_col,
+                            y=value_col,
+                            text_auto=".2f",
                         )
-                        value_col = next(
-                            (
-                                c
-                                for c in cols
-                                if any(
-                                    x in c.lower()
-                                    for x in [
-                                        "value",
-                                        "index",
-                                        "gdp",
-                                        "cpi",
-                                        "iip",
-                                        "growth",
-                                        "rate",
-                                        "percent",
-                                        "%",
-                                    ]
-                                )
-                            ),
-                            None,
+                        fig_bar.update_layout(
+                            xaxis_title="Period (recent)",
+                            yaxis_title=value_col,
+                            height=320,
+                            template="plotly_white",
                         )
+                        st.plotly_chart(fig_bar, use_container_width=True)
 
-                        if date_col and value_col:
-                            tmp = df_try.copy()
-                            tmp[date_col] = pd.to_datetime(
-                                tmp[date_col], errors="coerce"
-                            )
-                            tmp = tmp.dropna(subset=[date_col, value_col]).sort_values(
-                                date_col
-                            )
-                            fig_tr = px.line(
-                                tmp,
-                                x=date_col,
-                                y=value_col,
-                                title=f"{sec.upper()} trend",
-                                markers=True,
-                            )
-                            st.plotly_chart(fig_tr, use_container_width=True)
-                        else:
-                            st.info(
-                                "Could not auto-detect date / value columns for trend chart."
-                            )
-                    except Exception as e:
-                        st.warning(f"Trend plot error: {e}")
                 else:
                     st.info(
-                        "No data available for this indicator. Upload a CSV/PDF in the admin panel."
+                        "Could not auto-detect date and value columns. "
+                        "Showing raw data instead."
                     )
-
+                    st.dataframe(df_try.head(20), use_container_width=True)
+            else:
+                st.info(
+                    "No structured data available for this indicator. "
+                    "Upload a CSV file in the admin panel."
+                )
+                
             # ========== RIGHT COLUMN: PRESS RELEASES + NEWS ==========
             with right:
                 st.markdown(f"### {sec.upper()} — Press releases & News")
