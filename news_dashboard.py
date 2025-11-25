@@ -1542,7 +1542,8 @@ with c1:
 c1.metric("Price", f"{ccy}{current_price:,.2f}", f"{change_val:+.2f}")
 c3.metric("Open",  f"{ccy}{open_price:,.2f}")
 c4.metric("High",  f"{ccy}{high_price:,.2f}")
-c5.metric("Low",   f"{ccy}{low_price:,.2f}")c6.metric("Volume", f"{volume:,}")
+c5.metric("Low", f"{ccy}{low_price:.2f}")
+c6.metric("Volume", f"{volume:,}")
 st.caption(f"🕒 Last Updated: {latest['Date']} | Sentiment: {sentiment}")
 
 # --- Line chart for price trend ---
