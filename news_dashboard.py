@@ -359,22 +359,44 @@ def sentiment_label(text):
 # yfinance helpers
 @st.cache_data(ttl=MARKET_TTL)
 def fetch_index_snapshot():
+    """
+    Live-ish snapshot for major indices.
+
+    - Uses intraday 5-minute candles (last 2 days) from Yahoo Finance.
+    - 'last' = latest close
+    - 'pct'  = % change vs previous 5-minute bar
+    """
     out = {}
     for name, sym in INDICES.items():
         try:
-            df = yf.download(sym, period="3d", interval="1d", progress=False, threads=False)
+            # 2 days + 5-minute interval gives intraday movement
+            df = yf.download(
+                sym,
+                period="2d",
+                interval="5m",
+                progress=False,
+                threads=False,
+            )
+
             if df is None or df.empty:
                 out[name] = {"last": None, "pct": None}
-            else:
-                last = float(df["Close"].iloc[-1])
-                prev = float(df["Close"].iloc[-2]) if len(df) > 1 else last
-                pct = (last - prev) / prev * 100 if prev != 0 else 0.0
-                out[name] = {"last": last, "pct": pct}
+                continue
+
+            # remove any duplicate timestamps just in case
+            df = df[~df.index.duplicated(keep="last")]
+
+            last = float(df["Close"].iloc[-1])
+            prev = float(df["Close"].iloc[-2]) if len(df) > 1 else last
+
+            pct = (last - prev) / prev * 100 if prev != 0 else 0.0
+            out[name] = {"last": last, "pct": pct}
+
         except Exception as e:
             out[name] = {"last": None, "pct": None}
             log(f"index fetch error {name}: {e}")
-    return out
 
+    return out
+    
 @st.cache_data(ttl=MARKET_TTL)
 def fetch_stock_history(sym, period="1y", interval="1d"):
     try:
