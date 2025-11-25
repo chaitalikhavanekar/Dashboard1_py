@@ -1732,16 +1732,24 @@ if stock_input:
                 }
             )
 
-        if rows:
-            df_actions = (
-                pd.DataFrame(rows)
-                .sort_values(by=["Date"], ascending=False, na_position="last")
-                .reset_index(drop=True)
-            )
-            st.dataframe(df_actions, use_container_width=True)
-        else:
-            st.info("No corporate actions / events found for this symbol.")
+if rows:
+    df_actions = pd.DataFrame(rows)
 
+    # 👉 FORCE Date column ko proper datetime bana do
+    if "Date" in df_actions.columns:
+        df_actions["Date"] = pd.to_datetime(df_actions["Date"], errors="coerce")
+        df_actions = (
+            df_actions
+            .sort_values(by=["Date"], ascending=False, na_position="last")
+            .reset_index(drop=True)
+        )
+    else:
+        df_actions = df_actions.reset_index(drop=True)
+
+    st.dataframe(df_actions, use_container_width=True)
+else:
+    st.info("No corporate actions / events found for this symbol.")
+    
         # --- Corporate event news with sentiment ---
         st.markdown("### 📰 Corporate Event News (Sentiment)")
         if news_list:
