@@ -308,24 +308,35 @@ def safe_json_get(url, params=None, headers=None, timeout=12):
 def fetch_newsapi(query, n=10):
     if not NEWSAPI_KEY:
         return None
+
     url = "https://newsapi.org/v2/everything"
-    params = {"q": query, "language": "en", "pageSize": n, "sortBy": "publishedAt", "apiKey": NEWSAPI_KEY}
+    params = {
+        "q": query,
+        "language": "en",
+        "pageSize": n,
+        "sortBy": "publishedAt",
+        "apiKey": NEWSAPI_KEY,
+    }
+
     try:
         js = safe_json_get(url, params=params)
         if js and js.get("status") == "ok":
             out = []
             for a in js.get("articles", [])[:n]:
-                out.append({
-                    "title": a.get("title"),
-                    "summary": a.get("description") or a.get("content") or "",
-                    "url": a.get("url"),
-                    "source": a.get("source", {}).get("name"),
-                    "publishedAt": a.get("publishedAt")
-                })
+                out.append(
+                    {
+                        "title": a.get("title"),
+                        "summary": a.get("description") or a.get("content") or "",
+                        "url": a.get("url"),
+                        "source": (a.get("source") or {}).get("name"),
+                        "publishedAt": a.get("publishedAt"),
+                    }
+                )
             return out
     except Exception as e:
         log(f"newsapi error: {e}")
-    return None
+        return None
+
 
 @st.cache_data(ttl=NEWS_TTL)
 def fetch_google_rss(query, n=10, country="IN"):
@@ -335,56 +346,65 @@ def fetch_google_rss(query, n=10, country="IN"):
         feed = feedparser.parse(url)
         out = []
         for entry in feed.entries[:n]:
-            out.append({
-                "title": entry.get("title"),
-                "summary": entry.get("summary") or "",
-                "url": entry.get("link"),
-                "source": (entry.get("source") or {}).get("title") if entry.get("source") else None,
-                "publishedAt": entry.get("published") or entry.get("published_parsed")
-            })
+            out.append(
+                {
+                    "title": entry.get("title"),
+                    "summary": entry.get("summary") or "",
+                    "url": entry.get("link"),
+                    "source": (entry.get("source") or {}).get("title")
+                    if entry.get("source")
+                    else None,
+                    "publishedAt": entry.get("published") or entry.get("published_parsed"),
+                }
+            )
         return out
+    except Exception as e:
+        log(f"google rss error: {e}")
+        return []
 
+
+# --------- Unified news fetch with TODAY filter (IST) ---------
 def fetch_news(query, n=8, only_today=False):
     """
     Fetch news via NewsAPI or Google RSS fallback.
     - only_today=True → keeps only IST-date articles
     """
 
-    # --- helper to parse raw publishedAt into timezone-aware UTC timestamp ---
     def _parse_pub_to_utc(pub):
+        """Convert raw publishedAt to tz-aware UTC timestamp."""
         try:
             ts = pd.to_datetime(pub, utc=True, errors="coerce")
             if pd.isna(ts):
                 return None
-            return ts  # tz-aware UTC timestamp
+            return ts
         except Exception:
             return None
 
-    # --- choose source: NewsAPI (if key exists) else Google RSS ---
+    # Choose source: NewsAPI if we have a key, otherwise Google RSS
     res = fetch_newsapi(query, n=n) if NEWSAPI_KEY else None
-    if res:
-        raw = res
-    else:
-        raw = fetch_google_rss(query, n=n)
-
+    raw = res if res else fetch_google_rss(query, n=n)
     if not raw:
         return []
 
-    # --- normalize records ---
+    # Normalise records
     cleaned = []
     for a in raw[:n]:
         item = {
             "title": a.get("title") or "",
             "summary": a.get("summary") or a.get("description") or "",
             "url": a.get("url") or a.get("link") or "",
-            "source": (a.get("source") or {}).get("name") if isinstance(a.get("source"), dict) else a.get("source"),
-            "publishedAt_raw": a.get("publishedAt") or a.get("published") or a.get("pubDate") or "",
+            "source": (a.get("source") or {}).get("name")
+            if isinstance(a.get("source"), dict)
+            else a.get("source"),
+            "publishedAt_raw": a.get("publishedAt")
+            or a.get("published")
+            or a.get("pubDate")
+            or "",
         }
-        # convert to UTC timestamp
         item["publishedAt"] = _parse_pub_to_utc(item["publishedAt_raw"])
         cleaned.append(item)
 
-    # --- filter ONLY TODAY'S NEWS (IST) ---
+    # Filter ONLY TODAY's articles in IST
     if only_today:
         now_ist = pd.Timestamp.now(tz="Asia/Kolkata")
         today_ist = now_ist.date()
