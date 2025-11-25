@@ -844,10 +844,13 @@ for col, card in zip(cols, cards):
     </div>
     """
 
-    # Make each clickable card open the detail panel
-    if col.button(" ", key=f"btn_{key}", help=f"Click to view {label} details"):
-        st.session_state["macro_panel"] = key
+    # Show the card
     col.markdown(html_card, unsafe_allow_html=True)
+
+    # Clear, visible button to open the panel
+    if col.button(f"Open {card['short']} details", key=f"btn_{key}"):
+        st.session_state["macro_panel"] = key
+
 st.markdown("---")
 
 # initialize navigation state
