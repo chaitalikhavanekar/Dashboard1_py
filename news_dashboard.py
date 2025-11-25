@@ -1483,7 +1483,7 @@ st.caption(f"🕒 Last Updated: {latest['Date']} | Sentiment: {sentiment}")
                 height=400,
             )
             st.plotly_chart(fig, use_container_width=True)
-
+            
 # --- Moving averages ---
             st.markdown("### 📊 Moving Averages (Trend Analysis)")
             data["MA20"] = data["Close"].rolling(window=20).mean()
