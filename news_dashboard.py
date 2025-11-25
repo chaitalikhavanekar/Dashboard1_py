@@ -1752,40 +1752,41 @@ if rows:
 else:
     st.info("No corporate actions / events found for this symbol.")
     
+# --- Corporate event news with sentiment ---
 st.markdown("### 📰 Corporate Event News (Sentiment)")
 
-if news_list:
-    for item in news_list[:12]:
-        # try multiple keys for title + link so kabhi blank na rahe
-        title = (
-            item.get("title")
-            or item.get("headline")
-            or item.get("summary")
-            or "News item"
-        )
-        link = item.get("link") or item.get("url") or ""
-        publisher = item.get("publisher") or ""
-        label, score = sentiment_label(title)
+# Build a search query for this company
+company_query = (
+    info.get("shortName")
+    or info.get("longName")
+    or stock_input
+)
 
+# Use our global fetch_news() function
+evt_news = fetch_news(company_query, n=10)
+
+if evt_news:
+    for a in evt_news:
+        title = (a.get("title") or "News item").strip()
+        link = a.get("url") or ""
+        publisher = a.get("source") or ""
+        summary = a.get("summary") or ""
+
+        # Sentiment on title + summary
+        label, score = sentiment_label(f"{title} {summary}")
         color = (
             PALETTE["pos"] if label == "positive"
             else PALETTE["neg"] if label == "negative"
             else PALETTE["neu"]
         )
 
-        # agar link mila to clickable, warna plain text
-        if link:
-            line = f"- [{title}]({link})  \n"
-        else:
-            line = f"- {title}  \n"
-
         st.markdown(
-            line
-            + f"  <span style='color:{color}; font-weight:600'>{label.upper()}</span> ({score:+.2f}) · {publisher}",
+            f"- [{title}]({link})  \n"
+            f"  <span style='color:{color}; font-weight:600'>{label.upper()}</span> ({score:+.2f}) · {publisher}",
             unsafe_allow_html=True,
         )
 else:
-    st.info("No recent news found for this company.")
+    st.info("No recent company news found for this symbol.")
     
 # ---------- Footer & debug ----------
 st.markdown("---")
