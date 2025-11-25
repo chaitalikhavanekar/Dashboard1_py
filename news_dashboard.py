@@ -1417,7 +1417,6 @@ def render_macro_detail():
                             )
 
                         fig_line.frames = frames
-
                         fig_line.update_layout(
                             xaxis_title="Period",
                             yaxis_title=value_col,
@@ -1461,7 +1460,7 @@ def render_macro_detail():
                         )
                         st.plotly_chart(fig_line, use_container_width=True)
 
-                        # ------- Bar chart (last 12 periods) -------
+                        # ------- Static bar chart (last 12 periods) -------
                         st.markdown("#### Last 12 periods (bar)")
                         recent = tmp.tail(12)
                         fig_bar = px.bar(
