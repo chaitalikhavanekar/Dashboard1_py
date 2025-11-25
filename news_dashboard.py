@@ -39,6 +39,92 @@ from textblob import TextBlob
 
 import streamlit as st
 
+# ---- Number animation helpers ----
+def format_price(value):
+    try:
+        return f"{float(value):,.2f}"
+    except Exception:
+        return "N/A"
+
+
+def build_index_card_html(name, price, pct):
+    """Return HTML for the blue index card, for a given price + % change."""
+    if pct is None or price is None:
+        body = "N/A"
+        change_str = ""
+        color = PALETTE["neu"]
+        arrow = ""
+    else:
+        color = PALETTE["pos"] if pct >= 0 else PALETTE["neg"]
+        arrow = "▲" if pct >= 0 else "▼"
+        body = format_price(price)
+        change_str = f"{arrow} {pct:+.2f}%"
+
+    return f"""
+    <div class='card' style="text-align:left; padding:16px;">
+        <div style="font-weight:700; font-size:14px; color:{PALETTE['navy']};">{name}</div>
+        <div style="font-size:20px; margin-top:6px;">{body}</div>
+        <div style="font-size:13px; font-weight:600; color:{color}; margin-top:4px;">
+            {change_str}
+        </div>
+    </div>
+    """
+
+
+def animate_index_card(name, val, state_key):
+    """
+    Animate index card number from previous to current on each rerun.
+    - name: 'NIFTY 50'
+    - val: dict with 'last' and 'pct'
+    - state_key: key for st.session_state to store previous last price
+    """
+    placeholder = st.empty()
+
+    current = val.get("last")
+    pct = val.get("pct")
+    if current is None:
+        # just draw once if no data
+        placeholder.markdown(build_index_card_html(name, None, None), unsafe_allow_html=True)
+        return
+
+    current = float(current)
+
+    # previous value from last run (for animation start)
+    prev = st.session_state.get(state_key, current)
+
+    # simple linear interpolation (20 frames)
+    steps = 20
+    for p in np.linspace(prev, current, steps):
+        html = build_index_card_html(name, p, pct)
+        placeholder.markdown(html, unsafe_allow_html=True)
+        time.sleep(0.02)  # 20 ms per frame → quick smooth effect
+
+    # store last value for next rerun
+    st.session_state[state_key] = current
+
+
+def animate_metric(label, value, delta, state_key):
+    """
+    Animate a Streamlit metric (for single stock price).
+    - label: text label (e.g. 'Price')
+    - value: current numeric value
+    - delta: text for the delta (e.g. '+12.30')
+    """
+    box = st.empty()
+    if value is None:
+        box.metric(label, "N/A", delta)
+        return
+
+    current = float(value)
+    prev = st.session_state.get(state_key, current)
+
+    steps = 20
+    for v in np.linspace(prev, current, steps):
+        box.metric(label, f"₹{v:,.2f}", delta)
+        time.sleep(0.02)
+
+    st.session_state[state_key] = current
+    
 # --- Function to fetch fresh news ---
 import requests
 import pandas as pd
@@ -505,16 +591,24 @@ def fmt_dt(val):
 init_personalization()
 
 st.sidebar.title("Controls & Settings")
-search_query = st.sidebar.text_input("Search query", value="India economy OR RBI OR MOSPI OR inflation OR GDP OR infrastructure")
-headlines_count = st.sidebar.slider("Headlines to show", min_value=3, max_value=20, value=6)
-# --- Sidebar basic controls ---
-auto_ref = st.sidebar.selectbox(
-    "Auto-refresh indices & news",
-    options=["Off", "30s", "1m", "5m"],
-    index=1  # default = 30s so you see movement without changing anything
+
+# how many headlines to show
+headlines_count = st.sidebar.slider(
+    "Headlines to show", min_value=3, max_value=20, value=6
 )
 
-stock_input = st.sidebar.text_input("Single stock (one symbol)", value="RELIANCE.NS")
+# auto-refresh interval for live indices + news + stock data
+auto_ref = st.sidebar.selectbox(
+    "Auto-refresh",
+    options=["Off", "30s", "1m", "5m"],
+    index=2,  # default = 1m
+)
+
+# single stock symbol
+stock_input = st.sidebar.text_input(
+    "Single stock (one symbol)", value="RELIANCE.NS"
+)
+
 st.sidebar.markdown("---")
 
 # --- Interests (for personalization) ---
@@ -522,28 +616,42 @@ st.sidebar.markdown("### 🧠 Interests for personalization")
 
 interests = st.sidebar.multiselect(
     "Pick interests",
-    ["RBI", "infrastructure", "startups", "banks", "inflation", "GDP", "employment", "policy", "stock"],
-    default=["inflation", "RBI"]
+    [
+        "RBI",
+        "infrastructure",
+        "startups",
+        "banks",
+        "inflation",
+        "GDP",
+        "employment",
+        "policy",
+        "stock",
+    ],
+    default=["inflation", "RBI"],
 )
 
 if st.sidebar.button("Save interests"):
     st.session_state["interests"] = interests
 
-# Manual hard refresh button
+# manual hard refresh of cache + app
 if st.sidebar.button("Refresh now"):
-    requests_cache.clear()   # clear HTTP cache
-    st.cache_data.clear()    # clear Streamlit cached data
+    requests_cache.clear()  # clear cached HTTP responses
     st.experimental_rerun()
 
-# --- Auto-refresh handling (indices + news) ---
+# --- parse auto_ref seconds & enable streamlit_autorefresh if available ---
 interval_map = {"Off": 0, "30s": 30, "1m": 60, "5m": 300}
 interval_seconds = interval_map.get(auto_ref, 0)
 
 if HAS_AUTOREF and interval_seconds > 0:
-    tick = st_autorefresh(interval=interval_seconds * 1000, key="autorefresh_counter")
-    st.sidebar.caption(f"🔁 Auto-refresh every {interval_seconds}s (ticks: {tick})")
+    tick = st_autorefresh(
+        interval=interval_seconds * 1000,
+        key="autorefresh_counter",
+    )
+    st.sidebar.caption(f"Auto-refresh ticks: {tick}")
 elif interval_seconds > 0:
-    st.sidebar.info("Auto-refresh requested — install 'streamlit-autorefresh' to enable it.")
+    st.sidebar.info(
+        "Auto-refresh set; install streamlit-autorefresh for automatic reloads."
+    )
     
 # ---------- Top header & indices ----------
 st.markdown("<h1>📰 News & Insights — India Economic Intelligence</h1>", unsafe_allow_html=True)
