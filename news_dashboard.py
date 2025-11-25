@@ -1053,18 +1053,32 @@ def latest_summary_from_df(df, date_cols=None, value_cols=None):
         log(f"latest_summary error: {e}")
         return None, None
 
-cpi_val, cpi_date = latest_summary_from_df(cpi_data_gov or cpi_df_up)
-iip_val, iip_date = latest_summary_from_df(iip_data_gov or iip_df_up)
-gdp_val, gdp_date = latest_summary_from_df(gdp_data_gov or gdp_df_up)
+# Pick source df: API data if present, otherwise uploaded CSV, otherwise None
+cpi_source = cpi_data_gov if cpi_data_gov is not None else cpi_df_up
+iip_source = iip_data_gov if iip_data_gov is not None else iip_df_up
+gdp_source = gdp_data_gov if gdp_data_gov is not None else gdp_df_up
 
+cpi_val, cpi_date = latest_summary_from_df(cpi_source)
+iip_val, iip_date = latest_summary_from_df(iip_source)
+gdp_val, gdp_date = latest_summary_from_df(gdp_source)
+# Unemployment – currently only from upload (no data.gov API)
+if isinstance(unemp_df_up, pd.DataFrame):
+    unemp_val, unemp_date = latest_summary_from_df(unemp_df_up)
+else:
+    unemp_val, unemp_date = None, None
+    
 # --- Overview Cards styled like National Statistics Office ---
 st.markdown("<h3 style='margin-top:15px;'>Key Indicators (Click any to explore full dashboard)</h3>", unsafe_allow_html=True)
 
 cards = [
-    {"label": "Index of Industrial Production", "short": "IIP", "icon": "🏭", "key": "iip", "val": iip_val or 4.0, "date": "September 2025"},
-    {"label": "Inflation Rate (CPI Based)", "short": "CPI", "icon": "📊", "key": "cpi", "val": cpi_val or 1.54, "date": "September 2025"},
-    {"label": "Gross Domestic Product (Growth)", "short": "GDP", "icon": "💹", "key": "gdp", "val": gdp_val or 7.8, "date": "Q1 2025–26"},
-    {"label": "Unemployment Rate", "short": "UNEMP", "icon": "👷", "key": "unemp", "val": 5.2, "date": "September 2025"}
+    {"label": "Index of Industrial Production", "short": "IIP", "icon": "🏭", "key": "iip",
+     "val": iip_val or 4.0, "date": str(iip_date.date()) if iip_date is not None else "September 2025"},
+    {"label": "Inflation Rate (CPI Based)", "short": "CPI", "icon": "📊", "key": "cpi",
+     "val": cpi_val or 1.54, "date": str(cpi_date.date()) if cpi_date is not None else "September 2025"},
+    {"label": "Gross Domestic Product (Growth)", "short": "GDP", "icon": "💹", "key": "gdp",
+     "val": gdp_val or 7.8, "date": str(gdp_date.date()) if gdp_date is not None else "Q1 2025–26"},
+    {"label": "Unemployment Rate", "short": "UNEMP", "icon": "👷", "key": "unemp",
+     "val": unemp_val or 5.2, "date": str(unemp_date.date()) if unemp_date is not None else "September 2025"},
 ]
 
 cols = st.columns(4, gap="large")
@@ -1226,6 +1240,26 @@ def render_macro_detail():
                 df_try = gdp_data_gov if gdp_data_gov is not None else gdp_df_up
             else:  # unemployment – only from upload for now
                 df_try = unemp_df_up
+# --- If no real data, create a smooth demo series so charts still work ---
+        if df_try is None:
+            dates = pd.date_range("2024-01-01", periods=12, freq="M")
+
+            if sec == "cpi":
+                vals = np.linspace(6.5, 4.0, len(dates)) + np.random.normal(0, 0.15, len(dates))
+                df_try = pd.DataFrame({"Date": dates, "CPI_Index": np.round(vals, 2)})
+
+            elif sec == "iip":
+                vals = np.linspace(110, 125, len(dates)) + np.random.normal(0, 1.5, len(dates))
+                df_try = pd.DataFrame({"Date": dates, "IIP_Index": np.round(vals, 1)})
+
+            elif sec == "gdp":
+                quarters = [f"Q{i} 2024" for i in range(1, 5)] + [f"Q{i} 2025" for i in range(1, 5)]
+                vals = [7.2, 7.5, 7.8, 8.0, 7.9, 7.7, 7.6, 7.5]
+                df_try = pd.DataFrame({"Quarter": quarters[:len(vals)], "Real_GDP_Growth": vals})
+
+            elif sec == "unemp":
+                vals = np.linspace(7.5, 5.5, len(dates)) + np.random.normal(0, 0.2, len(dates))
+                df_try = pd.DataFrame({"Date": dates, "Unemployment_Rate": np.round(vals, 2)})
 
 # ========== LEFT COLUMN: CHARTS ==========
         with left:
