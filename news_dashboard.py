@@ -593,8 +593,8 @@ headlines_count = st.sidebar.slider(
 # auto-refresh interval for live indices + news + stock data
 auto_ref = st.sidebar.selectbox(
     "Auto-refresh",
-    options=["Off", "30s", "1m", "5m"],
-    index=2,  # default = 1m
+    options=["Off", "1s", "30s", "1m", "5m"],
+    index=3,  # default = 1m
 )
 
 # single stock symbol
@@ -632,7 +632,7 @@ if st.sidebar.button("Refresh now"):
     st.experimental_rerun()
 
 # --- parse auto_ref seconds & enable streamlit_autorefresh if available ---
-interval_map = {"Off": 0, "30s": 30, "1m": 60, "5m": 300}
+interval_map = {"Off": 0, "1s": 1, "30s": 30, "1m": 60, "5m": 300}
 interval_seconds = interval_map.get(auto_ref, 0)
 
 if HAS_AUTOREF and interval_seconds > 0:
@@ -1458,11 +1458,15 @@ if stock_input:
 st.markdown(f"### {stock_input} — Current Snapshot")
 c1, c2, c3, c4, c5, c6 = st.columns(6)
 
-# Animated main price
+# animated main price
 with c1:
-    animate_metric("Price", current_price, f"{change_val:+.2f}", state_key="stock_price")
+    animate_metric(
+        label="Price",
+        value=current_price,
+        delta=f"{change_val:+.2f}",
+        state_key=f"stock_price_{stock_input}",
+    )
 
-# Other stats normal
 c2.metric("Change (%)", f"{change_pct:+.2f}%")
 c3.metric("Open", f"₹{open_price:,.2f}")
 c4.metric("High", f"₹{high_price:,.2f}")
