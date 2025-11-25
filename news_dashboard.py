@@ -363,7 +363,7 @@ def fetch_google_rss(query, n=10, country="IN"):
         return []
 
 
-# --------- Unified news fetch with TODAY filter (IST) ---------
+# -------- Unified news fetch with TODAY filter (IST) --------
 def fetch_news(query, n=8, only_today=False):
     """
     Fetch news via NewsAPI or Google RSS fallback.
@@ -376,17 +376,18 @@ def fetch_news(query, n=8, only_today=False):
             ts = pd.to_datetime(pub, utc=True, errors="coerce")
             if pd.isna(ts):
                 return None
-            return ts
+            return ts          # tz-aware UTC
         except Exception:
             return None
 
     # Choose source: NewsAPI if we have a key, otherwise Google RSS
     res = fetch_newsapi(query, n=n) if NEWSAPI_KEY else None
     raw = res if res else fetch_google_rss(query, n=n)
+
     if not raw:
         return []
-
-    # Normalise records
+        
+# --- normalise records ---
     cleaned = []
     for a in raw[:n]:
         item = {
@@ -394,17 +395,15 @@ def fetch_news(query, n=8, only_today=False):
             "summary": a.get("summary") or a.get("description") or "",
             "url": a.get("url") or a.get("link") or "",
             "source": (a.get("source") or {}).get("name")
-            if isinstance(a.get("source"), dict)
-            else a.get("source"),
+                      if isinstance(a.get("source"), dict) else a.get("source"),
             "publishedAt_raw": a.get("publishedAt")
-            or a.get("published")
-            or a.get("pubDate")
-            or "",
+                               or a.get("published")
+                               or a.get("pubDate") or "",
         }
         item["publishedAt"] = _parse_pub_to_utc(item["publishedAt_raw"])
         cleaned.append(item)
 
-    # Filter ONLY TODAY's articles in IST
+    # Filter ONLY TODAY’S articles in IST
     if only_today:
         now_ist = pd.Timestamp.now(tz="Asia/Kolkata")
         today_ist = now_ist.date()
@@ -417,7 +416,6 @@ def fetch_news(query, n=8, only_today=False):
             ts_ist = ts.tz_convert("Asia/Kolkata")
             if ts_ist.date() == today_ist:
                 filtered.append(it)
-
         cleaned = filtered
 
     return cleaned
@@ -758,7 +756,7 @@ with st.spinner("Fetching news..."):
     raw_news = fetch_news(search_query, n=headlines_count, only_today=True)
     if not raw_news:
         st.info("No news found for this query (NewsAPI may be required). Using broader search.")
-        raw_news = fetch_news(search_query.split(" ")[0], n=headlines_count)  # fallback attempt
+raw_news = fetch_news(search_query.split(" ")[0], n=headlines_count, only_today=True)
 
 # enrich news with sentiment & user score
 for a in raw_news:
