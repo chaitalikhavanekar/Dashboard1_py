@@ -1524,24 +1524,24 @@ fig_ma.update_layout(
 )
 st.plotly_chart(fig_ma, use_container_width=True)
 
-            # --- Corporate actions ---
-            st.markdown("### 🏢 Corporate Actions")
-            sa = fetch_stock_actions(stock_input)
-            divs = sa.get("dividends")
-            splits = sa.get("splits")
+# --- Corporate Actions ---
+st.markdown("### 🏢 Corporate Actions")
+sa = fetch_stock_actions(stock_input)
+divs = sa.get("dividends")
+splits = sa.get("splits")
 
-            if not getattr(divs, "empty", True):
-                st.subheader("Dividends")
-                st.dataframe(divs.reset_index().tail(5))
-            else:
-                st.info("No dividend data available.")
+if not getattr(divs, "empty", True):
+    st.subheader("Dividends")
+    st.dataframe(divs.reset_index().tail(5))
+else:
+    st.info("No dividend data available.")
 
-            if not getattr(splits, "empty", True):
-                st.subheader("Stock Splits")
-                st.dataframe(splits.reset_index().tail(5))
-            else:
-                st.info("No split data available.")
-
+if not getattr(splits, "empty", True):
+    st.subheader("Stock Splits")
+    st.dataframe(splits.reset_index().tail(5))
+else:
+    st.info("No split data available.")
+    
 else:
     st.info("Please enter a valid stock symbol (e.g., RELIANCE.NS, TCS.NS, AAPL).")
 # ---------- Footer & debug ----------
