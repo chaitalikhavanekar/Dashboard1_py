@@ -1645,6 +1645,7 @@ if stock_input:
 
         # 1) Dividends
         if not getattr(divs, "empty", True):
+        
             for dt, val in divs.tail(10).items():
                 rows.append(
                     {
@@ -1751,24 +1752,36 @@ if rows:
 else:
     st.info("No corporate actions / events found for this symbol.")
     
-# --- Corporate event news with sentiment ---
 st.markdown("### 📰 Corporate Event News (Sentiment)")
 
 if news_list:
     for item in news_list[:12]:
-        title = item.get("title") or ""
-        link = item.get("link") or ""
+        # try multiple keys for title + link so kabhi blank na rahe
+        title = (
+            item.get("title")
+            or item.get("headline")
+            or item.get("summary")
+            or "News item"
+        )
+        link = item.get("link") or item.get("url") or ""
         publisher = item.get("publisher") or ""
         label, score = sentiment_label(title)
+
         color = (
-            PALETTE["pos"] if label == "positive" else
-            PALETTE["neg"] if label == "negative" else
-            PALETTE["neu"]
+            PALETTE["pos"] if label == "positive"
+            else PALETTE["neg"] if label == "negative"
+            else PALETTE["neu"]
         )
 
+        # agar link mila to clickable, warna plain text
+        if link:
+            line = f"- [{title}]({link})  \n"
+        else:
+            line = f"- {title}  \n"
+
         st.markdown(
-            f"- [{title}]({link})  \n"
-            f"  <span style='color:{color}; font-weight:600'>{label.upper()}</span> ({score:+.2f}) · {publisher}",
+            line
+            + f"  <span style='color:{color}; font-weight:600'>{label.upper()}</span> ({score:+.2f}) · {publisher}",
             unsafe_allow_html=True,
         )
 else:
