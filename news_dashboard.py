@@ -1394,9 +1394,11 @@ def render_macro_detail():
                     show_press_and_news(
                         "Unemployment India",
                         resource_id=None,
-                        uploaded_df=unemp_df_up,
-                    )
-                    
+uploaded_df=unemp_df_up,
+)
+
+render_macro_detail()     ← ← EXACTLY LIKE THIS
+
 # ---------- Single-stock deep dive ----------
 st.markdown("---")
 st.markdown("## 💹 Stock — Single Symbol Deep Dive (Chart + Corporate Actions + Related News)")
