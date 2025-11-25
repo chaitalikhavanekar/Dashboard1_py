@@ -671,12 +671,24 @@ for i,(name,sym) in enumerate(INDICES.items()):
 st.markdown("---")
 
 # ---------- Fetch news ----------
-with st.spinner("Fetching news..."):
-    raw_news = fetch_news(search_query, n=headlines_count, only_today=True)
-    if not raw_news:
-        st.info("No news found for this query (NewsAPI may be required). Using broader search.")
-raw_news = fetch_news(search_query.split(" ")[0], n=headlines_count, only_today=True)
+raw_news = []
 
+with st.spinner("Fetching news..."):
+    if search_query.strip():
+        # main attempt
+        raw_news = fetch_news(search_query, n=headlines_count, only_today=True)
+
+        # fallback: use first word only if nothing came back
+        if not raw_news and " " in search_query:
+            raw_news = fetch_news(
+                search_query.split(" ")[0],
+                n=headlines_count,
+                only_today=True,
+            )
+
+if not raw_news:
+    st.info("No news found for this query (NewsAPI may be required, or try another keyword).")
+    
 # enrich news with sentiment & user score
 for a in raw_news:
     text = (a.get("title","") or "") + ". " + (a.get("summary") or "")
