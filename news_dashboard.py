@@ -653,11 +653,15 @@ st.markdown("---")
 with st.spinner("Fetching market snapshot..."):
     indices = fetch_index_snapshot()
 
-# indices tiles
+# indices tiles (animated)
 cols = st.columns(len(INDICES))
-for i,(name,sym) in enumerate(INDICES.items()):
-    val = indices.get(name, {})
-    if val.get("last") is None:
+
+for i, (name, sym) in enumerate(INDICES.items()):
+    val = indices.get(name, {"last": None, "pct": None})
+    with cols[i]:
+        # this uses the animate_index_card() helper we defined at the top
+        animate_index_card(name, val, state_key=f"idx_{name}")
+        if val.get("last") is None:
         cols[i].markdown(f"<div class='card'><b>{name}</b><div class='small-muted'>N/A</div></div>", unsafe_allow_html=True)
     else:
         color = PALETTE["pos"] if val["pct"] >= 0 else PALETTE["neg"]
@@ -710,6 +714,57 @@ def parse_pub(a):
         return pd.Timestamp.min
 
 news_sorted = sorted(raw_news, key=lambda x: (x["_user_score"], parse_pub(x)), reverse=True)
+# ---------- Overall Sentiment Meter ----------
+if raw_news:
+    avg_sent = float(np.mean([a.get("sent_score", 0.0) for a in raw_news]))
+    
+    if avg_sent >= 0.05:
+        mood = "😊 Overall Mood: Positive"
+        bar_color = PALETTE["pos"]
+    elif avg_sent <= -0.05:
+        mood = "😟 Overall Mood: Negative"
+        bar_color = PALETTE["neg"]
+    else:
+        mood = "😐 Overall Mood: Neutral"
+        bar_color = PALETTE["neu"]
+
+    st.markdown(
+        f"""
+        <div class='card' style="margin-bottom:10px; border-left:6px solid {bar_color}; padding:10px;">
+            <div style="font-size:13px; color:{PALETTE['teal']};">Sentiment Meter</div>
+            <div style="font-size:15px; font-weight:600;">{mood} (avg score: {avg_sent:+.2f})</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+# ---------- Breaking News Ribbon ----------
+if raw_news:
+    top_headline = news_sorted[0]
+
+    bt = top_headline.get("title", "")
+    burl = top_headline.get("url", "")
+
+    st.markdown(
+        f"""
+        <div style="
+            background: linear-gradient(90deg, {PALETTE['navy']}, {PALETTE['teal']});
+            color:white;
+            padding:6px 12px;
+            border-radius:8px;
+            font-size:13px;
+            margin-bottom:12px;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        ">
+            <strong>🔔 Breaking:</strong>
+            <a href="{burl}" target="_blank" style="color:white; text-decoration:none;">
+                {bt}
+            </a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ---------- Layout: main + side ----------
 main, side = st.columns([3,1])
@@ -1399,16 +1454,21 @@ if stock_input:
             arrow = "▲" if change_val > 0 else "▼" if change_val < 0 else "→"
             sentiment = "Bullish 📈" if change_val > 0 else "Bearish 📉" if change_val < 0 else "Neutral ⚖️"
 
-            # --- Display current stats ---
-            st.markdown(f"### {stock_input} — Current Snapshot")
-            c1, c2, c3, c4, c5, c6 = st.columns(6)
-            c1.metric("Price", f"₹{current_price:,.2f}", f"{change_val:+.2f}")
-            c2.metric("Change (%)", f"{change_pct:+.2f}%")
-            c3.metric("Open", f"₹{open_price:,.2f}")
-            c4.metric("High", f"₹{high_price:,.2f}")
-            c5.metric("Low", f"₹{low_price:,.2f}")
-            c6.metric("Volume", f"{volume:,}")
-            st.caption(f"🕒 Last Updated: {latest['Date']} | Sentiment: {sentiment}")
+# --- Display current stats ---
+st.markdown(f"### {stock_input} — Current Snapshot")
+c1, c2, c3, c4, c5, c6 = st.columns(6)
+
+# Animated main price
+with c1:
+    animate_metric("Price", current_price, f"{change_val:+.2f}", state_key="stock_price")
+
+# Other stats normal
+c2.metric("Change (%)", f"{change_pct:+.2f}%")
+c3.metric("Open", f"₹{open_price:,.2f}")
+c4.metric("High", f"₹{high_price:,.2f}")
+c5.metric("Low", f"₹{low_price:,.2f}")
+c6.metric("Volume", f"{volume:,}")
+st.caption(f"🕒 Last Updated: {latest['Date']} | Sentiment: {sentiment}")
 
             # --- Line chart for price trend ---
             import plotly.graph_objects as go
