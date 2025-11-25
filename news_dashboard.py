@@ -666,15 +666,16 @@ for i,(name,sym) in enumerate(INDICES.items()):
 
 st.markdown("---")
 
-# ---------- Fetch news ----------
+# -------- Fetch news ----------
 raw_news = []
+
+# Default topic before anything else
+search_query = "India economy"    # <--- FIXED & moved up
 
 with st.spinner("Fetching news..."):
     if search_query.strip():
         # main attempt
-search_query = "India economy"    # default topic
-
-raw_news = fetch_news(search_query, n=headlines_count, only_today=True)
+        raw_news = fetch_news(search_query, n=headlines_count, only_today=True)
 
         # fallback: use first word only if nothing came back
         if not raw_news and " " in search_query:
@@ -683,7 +684,7 @@ raw_news = fetch_news(search_query, n=headlines_count, only_today=True)
                 n=headlines_count,
                 only_today=True,
             )
-
+            
 if not raw_news:
     st.info("No news found for this query (NewsAPI may be required, or try another keyword).")
     
