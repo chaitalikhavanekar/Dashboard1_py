@@ -653,21 +653,18 @@ st.markdown("---")
 with st.spinner("Fetching market snapshot..."):
     indices = fetch_index_snapshot()
 
+with st.spinner("Fetching market snapshot..."):
+    indices = fetch_index_snapshot()
+
 # indices tiles (animated)
 cols = st.columns(len(INDICES))
 
 for i, (name, sym) in enumerate(INDICES.items()):
     val = indices.get(name, {"last": None, "pct": None})
     with cols[i]:
-        # this uses the animate_index_card() helper we defined at the top
+        # animate card using previous value from session_state
         animate_index_card(name, val, state_key=f"idx_{name}")
-        if val.get("last") is None:
-        cols[i].markdown(f"<div class='card'><b>{name}</b><div class='small-muted'>N/A</div></div>", unsafe_allow_html=True)
-    else:
-        color = PALETTE["pos"] if val["pct"] >= 0 else PALETTE["neg"]
-        arrow = "▲" if val["pct"] >= 0 else "▼"
-        cols[i].markdown(f"<div class='card'><b>{name}</b><div style='font-size:18px'>{val['last']:,.2f}</div><div style='color:{color}; font-weight:700'>{arrow} {val['pct']:+.2f}%</div></div>", unsafe_allow_html=True)
-
+        
 st.markdown("---")
 
 # -------- Fetch news ----------
