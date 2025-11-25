@@ -1752,7 +1752,7 @@ else:
     st.info("No corporate actions / events found for this symbol.")
     
         # --- Corporate event news with sentiment ---
-        st.markdown("### 📰 Corporate Event News (Sentiment)")
+st.markdown("### 📰 Corporate Event News (Sentiment)")
         if news_list:
             for item in news_list[:12]:
                 title = item.get("title") or ""
