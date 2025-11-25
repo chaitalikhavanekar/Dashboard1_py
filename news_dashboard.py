@@ -35,6 +35,7 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import plotly.express as px
+import plotly.graph_objects as go
 from textblob import TextBlob
 
 import streamlit as st
@@ -1468,7 +1469,6 @@ c6.metric("Volume", f"{volume:,}")
 st.caption(f"🕒 Last Updated: {latest['Date']} | Sentiment: {sentiment}")
 
             # --- Line chart for price trend ---
-            import plotly.graph_objects as go
             fig = go.Figure()
             fig.add_trace(go.Scatter(
                 x=data["Date"], y=data["Close"],
