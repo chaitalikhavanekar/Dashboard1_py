@@ -1459,10 +1459,9 @@ render_macro_detail()
 # ---------- Single-stock deep dive ----------
 st.markdown("---")
 st.markdown("## 💹 Stock — Single Symbol Deep Dive (Chart + Corporate Actions + Related News)")
-st.markdown("Enter symbol in sidebar (e.g., RELIANCE.NS).")
+st.markdown("Enter symbol in sidebar (e.g., RELIANCE.NS, AAPL, TCS.NS).")
 
 if stock_input:
-
     # --- AUTO-DETECT CURRENCY FROM YFINANCE ---
     t = yf.Ticker(stock_input)
     info = t.info if hasattr(t, "info") else {}
@@ -1474,11 +1473,10 @@ if stock_input:
         "EUR": "€",
         "GBP": "£"
     }
-
-    ccy = symbol_map.get(currency, "")
+    ccy = symbol_map.get(currency, "")  # symbol to show with price
 
     st.markdown("### 📅 Select Time Range")
-    
+
     tab_labels = ["1D", "3M", "6M", "1Y", "2Y", "3Y", "5Y"]
     tabs = st.tabs(tab_labels)
     period_map = {
@@ -1488,7 +1486,7 @@ if stock_input:
         "1Y": ("1y", "1d"),
         "2Y": ("2y", "1wk"),
         "3Y": ("3y", "1wk"),
-        "5Y": ("5y", "1wk")
+        "5Y": ("5y", "1wk"),
     }
 
     if "selected_period" not in st.session_state:
@@ -1505,231 +1503,270 @@ if stock_input:
 
     # --- Fetch stock data ---
     with st.spinner(f"Fetching {stock_input} data for {selected_label}..."):
-        data = yf.download(stock_input, period=period, interval=interval, progress=False)
-        if data.empty:
-            st.warning("⚠️ No stock data found. Try another symbol or add .NS for Indian stocks.")
+        data = yf.download(
+            stock_input,
+            period=period,
+            interval=interval,
+            progress=False,
+        )
+
+    if data.empty:
+        st.warning("⚠️ No stock data found. Try another symbol or add .NS for Indian stocks.")
+    else:
+        data = data.reset_index()
+        latest = data.iloc[-1]
+        prev = data.iloc[-2] if len(data) > 1 else latest
+
+        current_price = float(latest["Close"])
+        prev_price = float(prev["Close"])
+        change_val = current_price - prev_price
+        change_pct = (change_val / prev_price) * 100 if prev_price else 0.0
+        open_price = float(latest["Open"])
+        high_price = float(latest["High"])
+        low_price = float(latest["Low"])
+        volume = int(latest["Volume"])
+
+        color = "green" if change_val > 0 else "red" if change_val < 0 else "gray"
+        sentiment = (
+            "Bullish 📈" if change_val > 0 else
+            "Bearish 📉" if change_val < 0 else
+            "Neutral ⚖️"
+        )
+
+        # --- Current snapshot (with animated main price) ---
+        st.markdown(f"### {stock_input} — Current Snapshot")
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
+
+        with c1:
+            animate_metric(
+                label="Price",
+                value=current_price,
+                delta=f"{change_val:+.2f}",
+                state_key=f"stock_price_{stock_input}",
+            )
+
+        c2.metric("Change (%)", f"{change_pct:+.2f}%")
+        c3.metric("Open",  f"{ccy}{open_price:,.2f}")
+        c4.metric("High",  f"{ccy}{high_price:,.2f}")
+        c5.metric("Low",   f"{ccy}{low_price:,.2f}")
+        c6.metric("Volume", f"{volume:,}")
+        st.caption(f"🕒 Last Updated: {latest['Date']} | Sentiment: {sentiment}")
+
+        # --- Price trend chart ---
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=data["Date"],
+                y=data["Close"],
+                mode="lines",
+                name="Price",
+                line=dict(color=color, width=2),
+            )
+        )
+        fig.update_layout(
+            title=f"{stock_input} — {selected_label} Trend",
+            yaxis_title=f"Price ({ccy})",
+            xaxis_title="Date",
+            template="plotly_white",
+            height=400,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # --- Moving averages chart ---
+        st.markdown("### 📊 Moving Averages (Trend Analysis)")
+        data["MA20"] = data["Close"].rolling(window=20).mean()
+        data["MA50"] = data["Close"].rolling(window=50).mean()
+        data["MA200"] = data["Close"].rolling(window=200).mean()
+
+        show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
+        show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
+        show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
+
+        fig_ma = go.Figure()
+        fig_ma.add_trace(
+            go.Scatter(
+                x=data["Date"],
+                y=data["Close"],
+                mode="lines",
+                line=dict(color=color, width=2),
+                name="Price",
+            )
+        )
+        if show_ma20:
+            fig_ma.add_trace(
+                go.Scatter(
+                    x=data["Date"],
+                    y=data["MA20"],
+                    mode="lines",
+                    line=dict(width=1.8, dash="dot"),
+                    name="MA20",
+                )
+            )
+        if show_ma50:
+            fig_ma.add_trace(
+                go.Scatter(
+                    x=data["Date"],
+                    y=data["MA50"],
+                    mode="lines",
+                    line=dict(width=1.8, dash="dot"),
+                    name="MA50",
+                )
+            )
+        if show_ma200:
+            fig_ma.add_trace(
+                go.Scatter(
+                    x=data["Date"],
+                    y=data["MA200"],
+                    mode="lines",
+                    line=dict(width=1.8, dash="dot"),
+                    name="MA200",
+                )
+            )
+
+        fig_ma.update_layout(
+            title=f"{stock_input} — Moving Averages",
+            yaxis_title=f"Price ({ccy})",
+            xaxis_title="Date",
+            template="plotly_white",
+            height=400,
+        )
+        st.plotly_chart(fig_ma, use_container_width=True)
+
+        # --- Corporate actions + events in ONE table ---
+        st.markdown("### 🏢 Corporate Actions & Events (Summary)")
+
+        sa = fetch_stock_actions(stock_input)
+        divs = sa.get("dividends")
+        splits = sa.get("splits")
+        events = sa.get("events", [])
+        news_list = sa.get("news", [])
+
+        rows = []
+
+        # 1) Dividends
+        if not getattr(divs, "empty", True):
+            for dt, val in divs.tail(10).items():
+                rows.append(
+                    {
+                        "Category": "DIVIDEND",
+                        "Date": pd.to_datetime(dt),
+                        "Title / Detail": f"Dividend {val:.2f} per share",
+                        "Extra": "",
+                    }
+                )
+
+        # 2) Splits
+        if not getattr(splits, "empty", True):
+            for dt, ratio in splits.tail(10).items():
+                rows.append(
+                    {
+                        "Category": "SPLIT",
+                        "Date": pd.to_datetime(dt),
+                        "Title / Detail": f"Split ratio {ratio}",
+                        "Extra": "",
+                    }
+                )
+
+        def classify_event(ev_type: str, detail: str) -> str:
+            t = (ev_type or "").upper()
+            d = (detail or "").lower()
+
+            if t in {
+                "BONUS",
+                "BONUS ISSUE",
+                "RIGHTS",
+                "RIGHTS ISSUE",
+                "BUYBACK",
+                "OFS",
+                "BOND ISSUE",
+            }:
+                return t
+
+            if "bonus" in d:
+                return "BONUS ISSUE"
+            if "rights issue" in d:
+                return "RIGHTS ISSUE"
+            if "buyback" in d or "buy-back" in d:
+                return "BUYBACK"
+            if "offer for sale" in d or "ofs" in d:
+                return "OFS"
+            if "bond" in d or "debenture" in d:
+                return "BOND ISSUE"
+            if "dividend" in d:
+                return "DIVIDEND"
+            if "split" in d or "sub-division" in d:
+                return "SPLIT"
+
+            return t or "EVENT"
+
+        # 3) Structured events
+        for ev in events[-20:]:
+            ev_type = ev.get("type", "")
+            detail = ev.get("detail", "")
+            cat = classify_event(ev_type, detail)
+
+            rows.append(
+                {
+                    "Category": cat,
+                    "Date": ev.get("date"),
+                    "Title / Detail": detail,
+                    "Extra": ev.get("source", ""),
+                }
+            )
+
+        # 4) News as event entries
+        for n in news_list[:20]:
+            headline = n.get("title", "")
+            pub = n.get("publisher", "")
+            ts = n.get("providerPublishTime")
+            cat = classify_event("EVENT NEWS", headline)
+
+            rows.append(
+                {
+                    "Category": cat,
+                    "Date": pd.to_datetime(ts, unit="s", errors="ignore")
+                    if ts
+                    else "",
+                    "Title / Detail": headline,
+                    "Extra": pub,
+                }
+            )
+
+        if rows:
+            df_actions = (
+                pd.DataFrame(rows)
+                .sort_values(by=["Date"], ascending=False, na_position="last")
+                .reset_index(drop=True)
+            )
+            st.dataframe(df_actions, use_container_width=True)
         else:
-            data = data.reset_index()
-            latest = data.iloc[-1]
-            prev = data.iloc[-2] if len(data) > 1 else latest
+            st.info("No corporate actions / events found for this symbol.")
 
-            current_price = float(latest["Close"])
-            prev_price = float(prev["Close"])
-            change_val = current_price - prev_price
-            change_pct = (change_val / prev_price) * 100 if prev_price else 0.0
-            open_price = float(latest["Open"])
-            high_price = float(latest["High"])
-            low_price = float(latest["Low"])
-            volume = int(latest["Volume"])
+        # --- Corporate event news with sentiment ---
+        st.markdown("### 📰 Corporate Event News (Sentiment)")
+        if news_list:
+            for item in news_list[:12]:
+                title = item.get("title") or ""
+                link = item.get("link") or ""
+                publisher = item.get("publisher") or ""
+                label, score = sentiment_label(title)
+                color = (
+                    PALETTE["pos"]
+                    if label == "positive"
+                    else PALETTE["neg"]
+                    if label == "negative"
+                    else PALETTE["neu"]
+                )
 
-            color = "green" if change_val > 0 else "red" if change_val < 0 else "gray"
-            arrow = "▲" if change_val > 0 else "▼" if change_val < 0 else "→"
-            sentiment = "Bullish 📈" if change_val > 0 else "Bearish 📉" if change_val < 0 else "Neutral ⚖️"
-
-# --- Display current stats ---
-st.markdown(f"### {stock_input} — Current Snapshot")
-c1, c2, c3, c4, c5, c6 = st.columns(6)
-
-# animated main price
-with c1:
-    animate_metric(
-        label="Price",
-        value=current_price,
-        delta=f"{change_val:+.2f}",
-        state_key=f"stock_price_{stock_input}",
-    )
-
-c1.metric("Price", f"{ccy}{current_price:,.2f}", f"{change_val:+.2f}")
-c3.metric("Open",  f"{ccy}{open_price:,.2f}")
-c4.metric("High",  f"{ccy}{high_price:,.2f}")
-c5.metric("Low", f"{ccy}{low_price:.2f}")
-c6.metric("Volume", f"{volume:,}")
-st.caption(f"🕒 Last Updated: {latest['Date']} | Sentiment: {sentiment}")
-
-# --- Line chart for price trend ---
-fig = go.Figure()
-fig.add_trace(go.Scatter(
-    x=data["Date"], y=data["Close"],
-    mode="lines", name="Price",
-    line=dict(color=color, width=2)
-))
-fig.update_layout(
-    title=f"{stock_input} — {selected_label} Trend",
-yaxis_title=f"Price ({ccy})",
-    xaxis_title="Date",
-    template="plotly_white",
-    height=400,
-)
-st.plotly_chart(fig, use_container_width=True)
-
-# --- Moving averages ---
-st.markdown("### 📊 Moving Averages (Trend Analysis)")
-data["MA20"] = data["Close"].rolling(window=20).mean()
-data["MA50"] = data["Close"].rolling(window=50).mean()
-data["MA200"] = data["Close"].rolling(window=200).mean()
-
-show_ma20 = st.checkbox("Show MA20 (Short-term)", value=True)
-show_ma50 = st.checkbox("Show MA50 (Medium-term)", value=True)
-show_ma200 = st.checkbox("Show MA200 (Long-term)", value=False)
-
-fig_ma = go.Figure()
-fig_ma.add_trace(go.Scatter(
-    x=data["Date"], y=data["Close"], mode="lines",
-    line=dict(color=color, width=2), name="Price",
-))
-if show_ma20:
-    fig_ma.add_trace(go.Scatter(
-        x=data["Date"], y=data["MA20"], mode="lines",
-        line=dict(width=1.8, dash="dot"), name="MA20",
-    ))
-if show_ma50:
-    fig_ma.add_trace(go.Scatter(
-        x=data["Date"], y=data["MA50"], mode="lines",
-        line=dict(width=1.8, dash="dot"), name="MA50",
-    ))
-if show_ma200:
-    fig_ma.add_trace(go.Scatter(
-        x=data["Date"], y=data["MA200"], mode="lines",
-        line=dict(width=1.8, dash="dot"), name="MA200",
-    ))
-
-fig_ma.update_layout(
-    title=f"{stock_input} — Moving Averages",
-yaxis_title=f"Price ({ccy})",
-    xaxis_title="Date",
-    template="plotly_white",
-    height=400,
-)
-st.plotly_chart(fig_ma, use_container_width=True)
-
-# --- Corporate actions + events in ONE table ---
-st.markdown("### 🏢 Corporate Actions & Events (Summary)")
-
-sa = fetch_stock_actions(stock_input)
-divs = sa.get("dividends")
-splits = sa.get("splits")
-events = sa.get("events", [])      # list of event dicts
-news_list = sa.get("news", [])     # list of news dicts
-
-rows = []
-
-# ---------- 1) Dividends ----------
-if not getattr(divs, "empty", True):
-    for dt, val in divs.tail(10).items():
-        rows.append(
-            {
-                "Category": "DIVIDEND",
-                "Date": pd.to_datetime(dt),
-                "Title / Detail": f"Dividend {val:.2f} per share",
-                "Extra": "",
-            }
-        )
-
-# ---------- 2) Splits ----------
-if not getattr(splits, "empty", True):
-    for dt, ratio in splits.tail(10).items():
-        rows.append(
-            {
-                "Category": "SPLIT",
-                "Date": pd.to_datetime(dt),
-                "Title / Detail": f"Split ratio {ratio}",
-                "Extra": "",
-            }
-        )
-
-# helper to classify events by text
-def classify_event(ev_type: str, detail: str) -> str:
-    t = (ev_type or "").upper()
-    d = (detail or "").lower()
-
-    # if API already sends a clear type, keep it
-    if t in {"BONUS", "BONUS ISSUE", "RIGHTS", "RIGHTS ISSUE",
-             "BUYBACK", "OFS", "BOND", "BOND ISSUE"}:
-        return t
-
-    # otherwise detect from text
-    if "bonus" in d:
-        return "BONUS ISSUE"
-    if "rights issue" in d or "rights entitlement" in d:
-        return "RIGHTS ISSUE"
-    if "buyback" in d or "buy-back" in d:
-        return "BUYBACK"
-    if "offer for sale" in d or "ofs" in d:
-        return "OFS"
-    if "bond" in d or "debenture" in d or "note issue" in d:
-        return "BOND ISSUE"
-    if "dividend" in d:
-        return "DIVIDEND"
-    if "split" in d or "sub-division" in d:
-        return "SPLIT"
-
-    # generic fallback
-    return t or "EVENT"
-
-# ---------- 3) Structured events (earnings, bonus, rights, buyback, etc.) ----------
-for ev in events[-20:]:   # latest 20
-    ev_type = ev.get("type", "")
-    detail = ev.get("detail", "")
-    cat = classify_event(ev_type, detail)
-
-    rows.append(
-        {
-            "Category": cat,
-            "Date": ev.get("date"),
-            "Title / Detail": detail,
-            "Extra": ev.get("source", ""),
-        }
-    )
-
-# ---------- 4) Important news tagged as EVENT NEWS / BUYBACK / BONUS etc. ----------
-for n in news_list[:20]:
-    headline = n.get("title", "")
-    pub = n.get("publisher", "")
-    ts = n.get("providerPublishTime")
-
-    cat = classify_event("EVENT NEWS", headline)
-
-    rows.append(
-        {
-            "Category": cat,
-            "Date": pd.to_datetime(ts, unit="s", errors="ignore") if ts else "",
-            "Title / Detail": headline,
-            "Extra": pub,
-        }
-    )
-
-# ---------- 5) Show table ----------
-if rows:
-    df_actions = (
-        pd.DataFrame(rows)
-        .sort_values(by=["Date"], ascending=False, na_position="last")
-        .reset_index(drop=True)
-    )
-    st.dataframe(df_actions, use_container_width=True)
+                st.markdown(
+                    f"- [{title}]({link})  \n"
+                    f"  <span style='color:{color}; font-weight:600'>{label.upper()}</span> ({score:+.2f}) · {publisher}",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.info("No recent news found for this company.")
 else:
-    st.info("No corporate actions / events found for this symbol.")
-    
-st.markdown("### 📰 Corporate Event News (Sentiment)")
-
-if news_list:
-    for item in news_list[:12]:
-        title = item.get("title") or ""
-        link = item.get("link") or ""
-        publisher = item.get("publisher") or ""
-        label, score = sentiment_label(title)
-        color = (
-            PALETTE["pos"] if label == "positive"
-            else PALETTE["neg"] if label == "negative"
-            else PALETTE["neu"]
-        )
-
-        st.markdown(
-            f"- [{title}]({link})  \n"
-            f"  <span style='color:{color}; font-weight:600'>{label.upper()}</span> ({score:+.2f}) · {publisher}",
-            unsafe_allow_html=True,
-        )
-else:
-    st.info("No recent news found for this company.")
+    st.info("Please enter a valid stock symbol (e.g., RELIANCE.NS, TCS.NS, AAPL).")
     
 # ---------- Footer & debug ----------
 st.markdown("---")
