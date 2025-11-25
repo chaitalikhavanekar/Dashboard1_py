@@ -419,10 +419,6 @@ def fetch_news(query, n=8, only_today=False):
         cleaned = filtered
 
     return cleaned
-    
-    except Exception as e:
-        log(f"google rss error: {e}")
-        return []
    
 def sentiment_label(text):
     try:
