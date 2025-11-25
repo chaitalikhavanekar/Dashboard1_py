@@ -1773,8 +1773,6 @@ if news_list:
         )
 else:
     st.info("No recent news found for this company.")
-else:
-    st.info("Please enter a valid stock symbol (e.g., RELIANCE.NS, TCS.NS, AAPL).")
     
 # ---------- Footer & debug ----------
 st.markdown("---")
