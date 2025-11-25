@@ -1541,9 +1541,7 @@ if not getattr(splits, "empty", True):
     st.dataframe(splits.reset_index().tail(5))
 else:
     st.info("No split data available.")
-    
-else:
-    st.info("Please enter a valid stock symbol (e.g., RELIANCE.NS, TCS.NS, AAPL).")
+
 # ---------- Footer & debug ----------
 st.markdown("---")
 st.markdown(f"<div style='color:{PALETTE['teal']}'>Last update: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</div>", unsafe_allow_html=True)
