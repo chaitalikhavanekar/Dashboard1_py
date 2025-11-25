@@ -1203,6 +1203,65 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
         return
         
 # --- Detailed dashboard panel renderer (shows four sections in tabs / collapsible) ---
+# ------- Smooth area chart (last 24 periods) -------
+            st.markdown("#### Last 24 periods (smooth area)")
+            area_df = tmp.tail(24)
+            if not area_df.empty:
+                fig_area = px.area(
+                    area_df,
+                    x=date_col,
+                    y=value_col,
+                )
+                fig_area.update_layout(
+                    xaxis_title="Period (recent)",
+                    yaxis_title=value_col,
+                    height=320,
+                    template="plotly_white",
+                )
+                st.plotly_chart(fig_area, use_container_width=True)
+
+            # ------- Year-on-Year change chart (if enough history) -------
+            if len(tmp) >= 13:
+                st.markdown("#### Approx. Year-on-Year change (%)")
+
+                yoy_df = tmp.copy()
+                # 12-period change → works reasonably for monthly data
+                yoy_df["YoY_change_%"] = yoy_df[value_col].pct_change(periods=12) * 100
+                yoy_df = yoy_df.dropna(subset=["YoY_change_%"])
+
+                if not yoy_df.empty:
+                    fig_yoy = px.line(
+                        yoy_df,
+                        x=date_col,
+                        y="YoY_change_%"
+                    )
+                    fig_yoy.update_layout(
+                        xaxis_title="Period",
+                        yaxis_title="YoY change (%)",
+                        height=320,
+                        template="plotly_white",
+                    )
+                    st.plotly_chart(fig_yoy, use_container_width=True)
+
+            # ------- Distribution of values (histogram) -------
+            st.markdown("#### Distribution of values")
+            try:
+                hist_df = tmp[[value_col]].dropna()
+                if not hist_df.empty:
+                    fig_hist = px.histogram(
+                        hist_df,
+                        x=value_col,
+                        nbins=20,
+                    )
+                    fig_hist.update_layout(
+                        xaxis_title=value_col,
+                        yaxis_title="Frequency",
+                        height=300,
+                        template="plotly_white",
+                    )
+                    st.plotly_chart(fig_hist, use_container_width=True)
+            except Exception as e:
+                st.caption(f"Histogram not available: {e}")
 def render_macro_detail():
     panel = st.session_state.get("macro_panel")
     if not panel:
@@ -1396,7 +1455,65 @@ def render_macro_detail():
                             template="plotly_white",
                         )
                         st.plotly_chart(fig_bar, use_container_width=True)
+# ------- Smooth area chart (last 24 periods) -------
+            st.markdown("#### Last 24 periods (smooth area)")
+            area_df = tmp.tail(24)
+            if not area_df.empty:
+                fig_area = px.area(
+                    area_df,
+                    x=date_col,
+                    y=value_col,
+                )
+                fig_area.update_layout(
+                    xaxis_title="Period (recent)",
+                    yaxis_title=value_col,
+                    height=320,
+                    template="plotly_white",
+                )
+                st.plotly_chart(fig_area, use_container_width=True)
 
+            # ------- Year-on-Year change chart (if enough history) -------
+            if len(tmp) >= 13:
+                st.markdown("#### Approx. Year-on-Year change (%)")
+
+                yoy_df = tmp.copy()
+                yoy_df["YoY_change_%"] = yoy_df[value_col].pct_change(periods=12) * 100
+                yoy_df = yoy_df.dropna(subset=["YoY_change_%"])
+
+                if not yoy_df.empty:
+                    fig_yoy = px.line(
+                        yoy_df,
+                        x=date_col,
+                        y="YoY_change_%"
+                    )
+                    fig_yoy.update_layout(
+                        xaxis_title="Period",
+                        yaxis_title="YoY change (%)",
+                        height=320,
+                        template="plotly_white",
+                    )
+                    st.plotly_chart(fig_yoy, use_container_width=True)
+
+            # ------- Distribution of values (histogram) -------
+            st.markdown("#### Distribution of values")
+            try:
+                hist_df = tmp[[value_col]].dropna()
+                if not hist_df.empty:
+                    fig_hist = px.histogram(
+                        hist_df,
+                        x=value_col,
+                        nbins=20,
+                    )
+                    fig_hist.update_layout(
+                        xaxis_title=value_col,
+                        yaxis_title="Frequency",
+                        height=300,
+                        template="plotly_white",
+                    )
+                    st.plotly_chart(fig_hist, use_container_width=True)
+            except Exception as e:
+                st.caption(f"Histogram not available: {e}")    
+                        
                 else:
                     st.info(
                         "Could not auto-detect date and value columns. "
