@@ -1371,7 +1371,6 @@ def render_macro_detail():
                         # ===================================================
                         st.markdown("#### Animated trend over time")
 
-                        # x axis as nice labels (e.g. 'Sep 2025')
                         x_vals = tmp[date_col].dt.strftime("%b %Y").tolist()
                         y_vals = tmp[value_col].tolist()
 
@@ -1439,7 +1438,7 @@ def render_macro_detail():
                         )
                         st.plotly_chart(fig_line, use_container_width=True)
 
-                        # ------- Static bar chart (last 12 periods) -------
+                        # ------- Bar chart (last 12 periods) -------
                         st.markdown("#### Last 12 periods (bar)")
                         recent = tmp.tail(12)
                         fig_bar = px.bar(
@@ -1454,8 +1453,9 @@ def render_macro_detail():
                             height=320,
                             template="plotly_white",
                         )
-                        st.plotly_chart(fig_bar, use_container_width=True)                       
-# ------- Smooth area chart (last 24 periods) -------
+                        st.plotly_chart(fig_bar, use_container_width=True)
+
+                        # ------- Smooth area chart (last 24 periods) -------
                         st.markdown("#### Last 24 periods (smooth area)")
                         area_df = tmp.tail(24)
                         if not area_df.empty:
@@ -1472,12 +1472,14 @@ def render_macro_detail():
                             )
                             st.plotly_chart(fig_area, use_container_width=True)
 
-                        # ------- Year-on-Year change chart -------
+                        # ------- Year-on-Year change chart (if enough history) -------
                         if len(tmp) >= 13:
                             st.markdown("#### Approx. Year-on-Year change (%)")
+
                             yoy_df = tmp.copy()
                             yoy_df["YoY_change_%"] = yoy_df[value_col].pct_change(periods=12) * 100
                             yoy_df = yoy_df.dropna(subset=["YoY_change_%"])
+
                             if not yoy_df.empty:
                                 fig_yoy = px.line(
                                     yoy_df,
@@ -1492,7 +1494,7 @@ def render_macro_detail():
                                 )
                                 st.plotly_chart(fig_yoy, use_container_width=True)
 
-                        # ------- Distribution of values -------
+                        # ------- Distribution of values (histogram) -------
                         st.markdown("#### Distribution of values")
                         hist_df = tmp[[value_col]].dropna()
                         if not hist_df.empty:
@@ -1508,9 +1510,6 @@ def render_macro_detail():
                                 template="plotly_white",
                             )
                             st.plotly_chart(fig_hist, use_container_width=True)
-                            
-                        except Exception as e:
-                            st.caption(f"Histogram not available: {e}")
 
                 else:
                     st.info(
