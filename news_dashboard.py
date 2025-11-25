@@ -1732,10 +1732,11 @@ if stock_input:
                 }
             )
 
+# ---------- 5) Show table ----------
 if rows:
     df_actions = pd.DataFrame(rows)
 
-    # 👉 FORCE Date column ko proper datetime bana do
+    # 👉 Convert Date column safely
     if "Date" in df_actions.columns:
         df_actions["Date"] = pd.to_datetime(df_actions["Date"], errors="coerce")
         df_actions = (
