@@ -1751,29 +1751,28 @@ if rows:
 else:
     st.info("No corporate actions / events found for this symbol.")
     
-        # --- Corporate event news with sentiment ---
+# --- Corporate event news with sentiment ---
 st.markdown("### 📰 Corporate Event News (Sentiment)")
-        if news_list:
-            for item in news_list[:12]:
-                title = item.get("title") or ""
-                link = item.get("link") or ""
-                publisher = item.get("publisher") or ""
-                label, score = sentiment_label(title)
-                color = (
-                    PALETTE["pos"]
-                    if label == "positive"
-                    else PALETTE["neg"]
-                    if label == "negative"
-                    else PALETTE["neu"]
-                )
 
-                st.markdown(
-                    f"- [{title}]({link})  \n"
-                    f"  <span style='color:{color}; font-weight:600'>{label.upper()}</span> ({score:+.2f}) · {publisher}",
-                    unsafe_allow_html=True,
-                )
-        else:
-            st.info("No recent news found for this company.")
+if news_list:
+    for item in news_list[:12]:
+        title = item.get("title") or ""
+        link = item.get("link") or ""
+        publisher = item.get("publisher") or ""
+        label, score = sentiment_label(title)
+        color = (
+            PALETTE["pos"] if label == "positive" else
+            PALETTE["neg"] if label == "negative" else
+            PALETTE["neu"]
+        )
+
+        st.markdown(
+            f"- [{title}]({link})  \n"
+            f"  <span style='color:{color}; font-weight:600'>{label.upper()}</span> ({score:+.2f}) · {publisher}",
+            unsafe_allow_html=True,
+        )
+else:
+    st.info("No recent news found for this company.")
 else:
     st.info("Please enter a valid stock symbol (e.g., RELIANCE.NS, TCS.NS, AAPL).")
     
