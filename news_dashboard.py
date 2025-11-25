@@ -1555,7 +1555,7 @@ fig.add_trace(go.Scatter(
 ))
 fig.update_layout(
     title=f"{stock_input} — {selected_label} Trend",
-yaxis_title=f"Price ({ccy})"
+yaxis_title=f"Price ({ccy})",
     xaxis_title="Date",
     template="plotly_white",
     height=400,
@@ -1595,7 +1595,7 @@ if show_ma200:
 
 fig_ma.update_layout(
     title=f"{stock_input} — Moving Averages",
-yaxis_title=f"Price ({ccy})"
+yaxis_title=f"Price ({ccy})",
     xaxis_title="Date",
     template="plotly_white",
     height=400,
