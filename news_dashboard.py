@@ -1198,10 +1198,6 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
             if s and len(s) < 300:
                 st.caption(s)
 
-except Exception as e:
-    st.warning(f"⚠️ Unable to fetch or display related news: {e}")
-    return
-
 def render_macro_detail():
     panel = st.session_state.get("macro_panel")
     if not panel:
