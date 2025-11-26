@@ -1200,9 +1200,63 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
             if s and len(s) < 300:
                 st.caption(s)
 
-    except Exception as e:
+except Exception as e:
         st.warning(f"⚠️ Unable to fetch or display related news: {e}")
         return
+
+
+def detect_date_value_columns(df: pd.DataFrame):
+    """
+    Try to guess which column is date/period and which is the main numeric value.
+    Returns (date_col, value_col) or (None, None) if not found.
+    """
+    if df is None or df.empty:
+        return None, None
+
+    cols = list(df.columns)
+
+    # ---- Guess date column by name or dtype ----
+    date_candidates = [
+        c for c in cols
+        if any(
+            key in c.lower()
+            for key in ["date", "month", "quarter", "period", "year", "time"]
+        )
+    ]
+
+    # also add columns that are already datetime dtype
+    for c in cols:
+        try:
+            if pd.api.types.is_datetime64_any_dtype(df[c]):
+                if c not in date_candidates:
+                    date_candidates.append(c)
+        except Exception:
+            pass
+
+    date_col = date_candidates[0] if date_candidates else None
+
+    # ---- Guess value column: numeric & not the date column ----
+    value_candidates = []
+    for c in cols:
+        if c == date_col:
+            continue
+        try:
+            if pd.api.types.is_numeric_dtype(df[c]):
+                value_candidates.append(c)
+        except Exception:
+            pass
+
+    # still nothing? fall back to first non-date column
+    if not value_candidates:
+        for c in cols:
+            if c != date_col:
+                value_candidates.append(c)
+                break
+
+    value_col = value_candidates[0] if value_candidates else None
+    return date_col, value_col
+
+
 def render_macro_detail():
     panel = st.session_state.get("macro_panel")
     if not panel:
