@@ -1140,7 +1140,7 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
     for a given keyword. Accepts an optional data.gov resource_id or an
     uploaded dataframe (uploaded_df) as fallback.
     """
-# --- PRESS RELEASE SECTION ---
+    # --- PRESS RELEASE SECTION ---
     st.markdown("### ⚖️ Press releases / Latest official data")
 
     if resource_id and DATA_GOV_API_KEY:
@@ -1159,7 +1159,7 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
 
     elif uploaded_df is not None:
         try:
-            # Handle PDF or CSV/XLSX
+            # Handle PDF vs table-like uploads
             if hasattr(uploaded_df, "name") and uploaded_df.name.lower().endswith(".pdf"):
                 pdf_text = read_pdf(uploaded_df)
                 st.markdown("##### 📰 Extracted press release preview:")
@@ -1168,10 +1168,9 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
                 st.dataframe(uploaded_df.head(6))
         except Exception as e:
             st.warning(f"⚠️ Error reading uploaded file: {e}")
-
     else:
         st.info("No official release data available. Upload CSV/PDF as fallback.")
-        
+
     # --- NEWS SECTION ---
     st.markdown("#### 🗞️ Related news (sentiment-labeled)")
 
@@ -1184,9 +1183,12 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
         for a in related:
             t = a.get("title") or a.get("headline") or ""
             s = a.get("summary") or a.get("description") or ""
+
             label, score = sentiment_label((t or "") + " " + (s or ""))
-            color = PALETTE["pos"] if label == "positive" else (
-                PALETTE["neg"] if label == "negative" else PALETTE["neu"]
+            color = (
+                PALETTE["pos"] if label == "positive"
+                else PALETTE["neg"] if label == "negative"
+                else PALETTE["neu"]
             )
 
             st.markdown(
@@ -1198,6 +1200,9 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
             if s and len(s) < 300:
                 st.caption(s)
 
+    except Exception as e:
+        st.warning(f"⚠️ Unable to fetch or display related news: {e}")
+        return
 def render_macro_detail():
     panel = st.session_state.get("macro_panel")
     if not panel:
