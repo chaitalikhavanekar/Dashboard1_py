@@ -745,7 +745,32 @@ with st.spinner("Fetching news..."):
             )
             
 if not raw_news:
-    st.info("No news found for this query (NewsAPI may be required, or try another keyword).")
+    st.info("No live news found (NewsAPI key / Google RSS might be blocked). Showing demo headlines instead.")
+
+    # ---- DEMO FALLBACK HEADLINES ----
+    raw_news = [
+        {
+            "title": "RBI keeps repo rate unchanged, focuses on inflation control",
+            "summary": "The Monetary Policy Committee decided to keep the benchmark interest rate steady while monitoring core inflation and growth.",
+            "url": "https://www.rbi.org.in",
+            "source": "Demo · RBI",
+            "publishedAt": datetime.utcnow().isoformat(),
+        },
+        {
+            "title": "India’s IIP shows steady recovery driven by manufacturing sector",
+            "summary": "Industrial output picked up pace in key sectors such as capital goods, infrastructure and consumer durables.",
+            "url": "https://www.mospi.gov.in",
+            "source": "Demo · MOSPI",
+            "publishedAt": datetime.utcnow().isoformat(),
+        },
+        {
+            "title": "GDP growth outlook remains strong on capex and services",
+            "summary": "Economists project robust GDP growth supported by government capital expenditure and resilient services exports.",
+            "url": "https://www.finmin.nic.in",
+            "source": "Demo · FinMin",
+            "publishedAt": datetime.utcnow().isoformat(),
+        },
+    ]
     
 # enrich news with sentiment & user score
 for a in raw_news:
