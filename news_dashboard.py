@@ -1266,7 +1266,7 @@ def render_macro_detail():
     st.button(
         "← Back to Overview",
         key="back_macro",
-        on_click=lambda: st.session_state.update({"macro_panel": None})
+        on_click=lambda: st.session_state.update({"macro_panel": None}),
     )
     st.markdown(
         f"<h3 style='margin-top:6px'>Detailed macro dashboard — {panel.upper()}</h3>",
@@ -1300,21 +1300,40 @@ def render_macro_detail():
                 dates = pd.date_range("2024-01-01", periods=12, freq="M")
 
                 if sec == "cpi":
-                    vals = np.linspace(6.5, 4.0, len(dates)) + np.random.normal(0, 0.15, len(dates))
-                    df_try = pd.DataFrame({"Date": dates, "CPI_Index": np.round(vals, 2)})
+                    vals = np.linspace(6.5, 4.0, len(dates)) + np.random.normal(
+                        0, 0.15, len(dates)
+                    )
+                    df_try = pd.DataFrame(
+                        {"Date": dates, "CPI_Index": np.round(vals, 2)}
+                    )
 
                 elif sec == "iip":
-                    vals = np.linspace(110, 125, len(dates)) + np.random.normal(0, 1.5, len(dates))
-                    df_try = pd.DataFrame({"Date": dates, "IIP_Index": np.round(vals, 1)})
+                    vals = np.linspace(110, 125, len(dates)) + np.random.normal(
+                        0, 1.5, len(dates)
+                    )
+                    df_try = pd.DataFrame(
+                        {"Date": dates, "IIP_Index": np.round(vals, 1)}
+                    )
 
                 elif sec == "gdp":
-                    quarters = [f"Q{i} 2024" for i in range(1, 5)] + [f"Q{i} 2025" for i in range(1, 5)]
+                    quarters = [f"Q{i} 2024" for i in range(1, 5)] + [
+                        f"Q{i} 2025" for i in range(1, 5)
+                    ]
                     vals = [7.2, 7.5, 7.8, 8.0, 7.9, 7.7, 7.6, 7.5]
-                    df_try = pd.DataFrame({"Quarter": quarters[:len(vals)], "Real_GDP_Growth": vals})
+                    df_try = pd.DataFrame(
+                        {
+                            "Quarter": quarters[: len(vals)],
+                            "Real_GDP_Growth": vals,
+                        }
+                    )
 
                 elif sec == "unemp":
-                    vals = np.linspace(7.5, 5.5, len(dates)) + np.random.normal(0, 0.2, len(dates))
-                    df_try = pd.DataFrame({"Date": dates, "Unemployment_Rate": np.round(vals, 2)})
+                    vals = np.linspace(7.5, 5.5, len(dates)) + np.random.normal(
+                        0, 0.2, len(dates)
+                    )
+                    df_try = pd.DataFrame(
+                        {"Date": dates, "Unemployment_Rate": np.round(vals, 2)}
+                    )
 
             # ========== LEFT COLUMN: CHARTS ==========
             with left:
@@ -1338,7 +1357,9 @@ def render_macro_detail():
                         )
                         tmp[value_col] = pd.to_numeric(tmp[value_col], errors="coerce")
 
-                        tmp = tmp.dropna(subset=[date_col, value_col]).sort_values(date_col)
+                        tmp = tmp.dropna(subset=[date_col, value_col]).sort_values(
+                            date_col
+                        )
 
                         if tmp.empty:
                             st.info("Could not find clean numeric data to plot.")
@@ -1354,11 +1375,20 @@ def render_macro_detail():
                                 else "Latest"
                             )
 
-                            unit = "%" if ("%" in value_col.lower() or "rate" in value_col.lower()) else ""
+                            unit = (
+                                "%"
+                                if (
+                                    "%"
+                                    in value_col.lower()
+                                    or "rate" in value_col.lower()
+                                )
+                                else ""
+                            )
                             metric_label = f"{sec.upper()} — latest"
                             metric_value = (
                                 f"{latest_val:,.2f}{unit}"
-                                if pd.notna(latest_val) else "N/A"
+                                if pd.notna(latest_val)
+                                else "N/A"
                             )
                             st.metric(metric_label, metric_value, dt_str)
 
@@ -1457,7 +1487,7 @@ def render_macro_detail():
                                 fig_area = px.area(
                                     area_df,
                                     x=date_col,
-                                    y=value_val,
+                                    y=value_col,
                                 )
                                 fig_area.update_layout(
                                     xaxis_title="Period (recent)",
@@ -1472,7 +1502,9 @@ def render_macro_detail():
                                 st.markdown("#### Approx. Year-on-Year change (%)")
 
                                 yoy_df = tmp.copy()
-                                yoy_df["YoY_change_%"] = yoy_df[value_col].pct_change(periods=12) * 100
+                                yoy_df["YoY_change_%"] = (
+                                    yoy_df[value_col].pct_change(periods=12) * 100
+                                )
                                 yoy_df = yoy_df.dropna(subset=["YoY_change_%"])
 
                                 if not yoy_df.empty:
