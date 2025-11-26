@@ -1134,6 +1134,8 @@ def read_pdf(file):
         return text.strip()[:2000]  # Limit to 2000 chars for display
     except Exception as e:
         return f"⚠️ Could not read PDF: {e}"
+
+
 def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
     """
     Show press releases (official) and related news (sentiment-labeled)
@@ -1200,14 +1202,14 @@ def show_press_and_news(keyword, resource_id=None, uploaded_df=None, nnews=6):
             if s and len(s) < 300:
                 st.caption(s)
 
-except Exception as e:
+    except Exception as e:
         st.warning(f"⚠️ Unable to fetch or display related news: {e}")
         return
 
 
 def detect_date_value_columns(df: pd.DataFrame):
     """
-    Try to guess which column is date/period and which is the main numeric value.
+    Guess which column is date/period and which is the main numeric value.
     Returns (date_col, value_col) or (None, None) if not found.
     """
     if df is None or df.empty:
@@ -1224,7 +1226,6 @@ def detect_date_value_columns(df: pd.DataFrame):
         )
     ]
 
-    # also add columns that are already datetime dtype
     for c in cols:
         try:
             if pd.api.types.is_datetime64_any_dtype(df[c]):
@@ -1246,7 +1247,6 @@ def detect_date_value_columns(df: pd.DataFrame):
         except Exception:
             pass
 
-    # still nothing? fall back to first non-date column
     if not value_candidates:
         for c in cols:
             if c != date_col:
@@ -1258,6 +1258,295 @@ def detect_date_value_columns(df: pd.DataFrame):
 
 
 def render_macro_detail():
+    panel = st.session_state.get("macro_panel")
+    if not panel:
+        return
+
+    # header + back button
+    st.button(
+        "← Back to Overview",
+        key="back_macro",
+        on_click=lambda: st.session_state.update({"macro_panel": None})
+    )
+    st.markdown(
+        f"<h3 style='margin-top:6px'>Detailed macro dashboard — {panel.upper()}</h3>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<div class='small-muted'>Data-driven visualizations, press releases and related news</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("")
+
+    # We always show the four sections, with the clicked one opened by default
+    sections = ["gdp", "cpi", "iip", "unemp"]
+
+    for sec in sections:
+        with st.expander(sec.upper(), expanded=(sec == panel)):
+            left, right = st.columns([2, 1])
+
+            # ---------- pick data frame for this section ----------
+            if sec == "cpi":
+                df_try = cpi_data_gov if cpi_data_gov is not None else cpi_df_up
+            elif sec == "iip":
+                df_try = iip_data_gov if iip_data_gov is not None else iip_df_up
+            elif sec == "gdp":
+                df_try = gdp_data_gov if gdp_data_gov is not None else gdp_df_up
+            else:  # unemployment – only from upload for now
+                df_try = unemp_df_up
+
+            # --- If no real data, create a smooth demo series so charts still work ---
+            if df_try is None:
+                dates = pd.date_range("2024-01-01", periods=12, freq="M")
+
+                if sec == "cpi":
+                    vals = np.linspace(6.5, 4.0, len(dates)) + np.random.normal(0, 0.15, len(dates))
+                    df_try = pd.DataFrame({"Date": dates, "CPI_Index": np.round(vals, 2)})
+
+                elif sec == "iip":
+                    vals = np.linspace(110, 125, len(dates)) + np.random.normal(0, 1.5, len(dates))
+                    df_try = pd.DataFrame({"Date": dates, "IIP_Index": np.round(vals, 1)})
+
+                elif sec == "gdp":
+                    quarters = [f"Q{i} 2024" for i in range(1, 5)] + [f"Q{i} 2025" for i in range(1, 5)]
+                    vals = [7.2, 7.5, 7.8, 8.0, 7.9, 7.7, 7.6, 7.5]
+                    df_try = pd.DataFrame({"Quarter": quarters[:len(vals)], "Real_GDP_Growth": vals})
+
+                elif sec == "unemp":
+                    vals = np.linspace(7.5, 5.5, len(dates)) + np.random.normal(0, 0.2, len(dates))
+                    df_try = pd.DataFrame({"Date": dates, "Unemployment_Rate": np.round(vals, 2)})
+
+            # ========== LEFT COLUMN: CHARTS ==========
+            with left:
+                st.markdown(f"### {sec.upper()} — Visualisations")
+
+                # Only proceed if we have a proper table
+                if isinstance(df_try, pd.DataFrame) and not df_try.empty:
+                    date_col, value_col = detect_date_value_columns(df_try)
+
+                    if date_col and value_col:
+                        tmp = df_try.copy()
+
+                        # ---- Clean date column ----
+                        tmp[date_col] = pd.to_datetime(tmp[date_col], errors="coerce")
+
+                        # ---- Clean numeric values (remove %, commas, text) ----
+                        tmp[value_col] = (
+                            tmp[value_col]
+                            .astype(str)
+                            .str.replace(r"[^\d\.\-]", "", regex=True)
+                        )
+                        tmp[value_col] = pd.to_numeric(tmp[value_col], errors="coerce")
+
+                        tmp = tmp.dropna(subset=[date_col, value_col]).sort_values(date_col)
+
+                        if tmp.empty:
+                            st.info("Could not find clean numeric data to plot.")
+                        else:
+                            # ------- Latest metric card -------
+                            last_row = tmp.iloc[-1]
+                            latest_val = last_row[value_col]
+                            latest_dt = last_row[date_col]
+
+                            dt_str = (
+                                latest_dt.strftime("%b %Y")
+                                if not pd.isna(latest_dt)
+                                else "Latest"
+                            )
+
+                            unit = "%" if ("%" in value_col.lower() or "rate" in value_col.lower()) else ""
+                            metric_label = f"{sec.upper()} — latest"
+                            metric_value = (
+                                f"{latest_val:,.2f}{unit}"
+                                if pd.notna(latest_val) else "N/A"
+                            )
+                            st.metric(metric_label, metric_value, dt_str)
+
+                            # ===================================================
+                            #  A N I M A T E D   L I N E   C H A R T
+                            # ===================================================
+                            st.markdown("#### Animated trend over time")
+
+                            x_vals = tmp[date_col].dt.strftime("%b %Y").tolist()
+                            y_vals = tmp[value_col].tolist()
+
+                            fig_line = go.Figure(
+                                data=[go.Scatter(x=[], y=[], mode="lines+markers")]
+                            )
+
+                            frames = []
+                            for k in range(1, len(x_vals) + 1):
+                                frames.append(
+                                    go.Frame(
+                                        data=[
+                                            go.Scatter(
+                                                x=x_vals[:k],
+                                                y=y_vals[:k],
+                                                mode="lines+markers",
+                                            )
+                                        ],
+                                        name=f"frame{k}",
+                                    )
+                                )
+
+                            fig_line.frames = frames
+                            fig_line.update_layout(
+                                xaxis_title="Period",
+                                yaxis_title=value_col,
+                                height=360,
+                                template="plotly_white",
+                                updatemenus=[
+                                    {
+                                        "type": "buttons",
+                                        "showactive": False,
+                                        "x": 0.02,
+                                        "y": 1.15,
+                                        "buttons": [
+                                            {
+                                                "label": "Play",
+                                                "method": "animate",
+                                                "args": [
+                                                    None,
+                                                    {
+                                                        "frame": {
+                                                            "duration": 400,
+                                                            "redraw": True,
+                                                        },
+                                                        "fromcurrent": True,
+                                                    },
+                                                ],
+                                            },
+                                            {
+                                                "label": "Pause",
+                                                "method": "animate",
+                                                "args": [
+                                                    [None],
+                                                    {
+                                                        "frame": {"duration": 0},
+                                                        "mode": "immediate",
+                                                    },
+                                                ],
+                                            },
+                                        ],
+                                    }
+                                ],
+                            )
+                            st.plotly_chart(fig_line, use_container_width=True)
+
+                            # ------- Static bar chart (last 12 periods) -------
+                            st.markdown("#### Last 12 periods (bar)")
+                            recent = tmp.tail(12)
+                            fig_bar = px.bar(
+                                recent,
+                                x=date_col,
+                                y=value_col,
+                                text_auto=".2f",
+                            )
+                            fig_bar.update_layout(
+                                xaxis_title="Period (recent)",
+                                yaxis_title=value_col,
+                                height=320,
+                                template="plotly_white",
+                            )
+                            st.plotly_chart(fig_bar, use_container_width=True)
+
+                            # ------- Smooth area chart (last 24 periods) -------
+                            st.markdown("#### Last 24 periods (smooth area)")
+                            area_df = tmp.tail(24)
+                            if not area_df.empty:
+                                fig_area = px.area(
+                                    area_df,
+                                    x=date_col,
+                                    y=value_val,
+                                )
+                                fig_area.update_layout(
+                                    xaxis_title="Period (recent)",
+                                    yaxis_title=value_col,
+                                    height=320,
+                                    template="plotly_white",
+                                )
+                                st.plotly_chart(fig_area, use_container_width=True)
+
+                            # ------- Year-on-Year change chart (if enough history) -------
+                            if len(tmp) >= 13:
+                                st.markdown("#### Approx. Year-on-Year change (%)")
+
+                                yoy_df = tmp.copy()
+                                yoy_df["YoY_change_%"] = yoy_df[value_col].pct_change(periods=12) * 100
+                                yoy_df = yoy_df.dropna(subset=["YoY_change_%"])
+
+                                if not yoy_df.empty:
+                                    fig_yoy = px.line(
+                                        yoy_df,
+                                        x=date_col,
+                                        y="YoY_change_%"
+                                    )
+                                    fig_yoy.update_layout(
+                                        xaxis_title="Period",
+                                        yaxis_title="YoY change (%)",
+                                        height=320,
+                                        template="plotly_white",
+                                    )
+                                    st.plotly_chart(fig_yoy, use_container_width=True)
+
+                            # ------- Distribution of values (histogram) -------
+                            st.markdown("#### Distribution of values")
+                            hist_df = tmp[[value_col]].dropna()
+                            if not hist_df.empty:
+                                fig_hist = px.histogram(
+                                    hist_df,
+                                    x=value_col,
+                                    nbins=20,
+                                )
+                                fig_hist.update_layout(
+                                    xaxis_title=value_col,
+                                    yaxis_title="Frequency",
+                                    height=300,
+                                    template="plotly_white",
+                                )
+                                st.plotly_chart(fig_hist, use_container_width=True)
+
+                    else:
+                        st.info(
+                            "Could not auto-detect date and value columns. "
+                            "Showing raw data instead."
+                        )
+                        st.dataframe(df_try.head(20), use_container_width=True)
+                else:
+                    st.info(
+                        "No structured data available for this indicator. "
+                        "Upload a CSV file in the admin panel."
+                    )
+
+            # ========== RIGHT COLUMN: PRESS RELEASES + NEWS ==========
+            with right:
+                st.markdown(f"### {sec.upper()} — Press releases & News")
+                if sec == "cpi":
+                    show_press_and_news(
+                        "CPI India",
+                        resource_id=CPI_RESOURCE_ID,
+                        uploaded_df=cpi_df_up,
+                    )
+                elif sec == "iip":
+                    show_press_and_news(
+                        "Index of Industrial Production India",
+                        resource_id=IIP_RESOURCE_ID,
+                        uploaded_df=iip_df_up,
+                    )
+                elif sec == "gdp":
+                    show_press_and_news(
+                        "GDP India",
+                        resource_id=GDP_RESOURCE_ID,
+                        uploaded_df=gdp_df_up,
+                    )
+                else:
+                    show_press_and_news(
+                        "Unemployment India",
+                        resource_id=None,
+                        uploaded_df=unemp_df_up,
+                    )
+                    
+    def render_macro_detail():
     panel = st.session_state.get("macro_panel")
     if not panel:
         return
