@@ -1578,11 +1578,11 @@ def render_macro_detail():
                         uploaded_df=unemp_df_up,
                     )
                     
-    def render_macro_detail():
+def render_macro_detail():
     panel = st.session_state.get("macro_panel")
     if not panel:
         return
-
+        
     # header + back button
     st.button(
         "← Back to Overview",
