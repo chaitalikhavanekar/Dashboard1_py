@@ -650,7 +650,7 @@ headlines_count = st.sidebar.slider(
 # auto-refresh interval for live indices + news + stock data
 auto_ref = st.sidebar.selectbox(
     "Auto-refresh",
-    options=["Off", "1s", "30s", "1m", "5m"],
+    options=["Off", "5s", "30s", "1m", "5m"],
     index=3,  # default = 1m
 )
 
@@ -689,7 +689,7 @@ if st.sidebar.button("Refresh now"):
     st.experimental_rerun()
 
 # --- parse auto_ref seconds & enable streamlit_autorefresh if available ---
-interval_map = {"Off": 0, "1s": 1, "30s": 30, "1m": 60, "5m": 300}
+interval_map = {"Off": 0, "5s": 5, "30s": 30, "1m": 60, "5m": 300}
 interval_seconds = interval_map.get(auto_ref, 0)
 
 if HAS_AUTOREF and interval_seconds > 0:
