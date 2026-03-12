@@ -2082,97 +2082,90 @@ except Exception:
         events = sa.get("events", [])
         news_list = sa.get("news", [])
 
-        rows = []
+rows = []
 
-        # 1) Dividends
-        if not getattr(divs, "empty", True):
-        
-            for dt, val in divs.tail(10).items():
-                rows.append(
-                    {
-                        "Category": "DIVIDEND",
-                        "Date": pd.to_datetime(dt),
-                        "Title / Detail": f"Dividend {val:.2f} per share",
-                        "Extra": "",
-                    }
-                )
+# 1) Dividends
+if not getattr(divs, "empty", True):
+    for dt, val in divs.tail(10).items():
+        rows.append({
+            "Category": "DIVIDEND",
+            "Date": pd.to_datetime(dt),
+            "Title / Detail": f"Dividend {val:.2f} per share",
+            "Extra": "",
+        })
 
-        # 2) Splits
-        if not getattr(splits, "empty", True):
-            for dt, ratio in splits.tail(10).items():
-                rows.append(
-                    {
-                        "Category": "SPLIT",
-                        "Date": pd.to_datetime(dt),
-                        "Title / Detail": f"Split ratio {ratio}",
-                        "Extra": "",
-                    }
-                )
+# 2) Splits
+if not getattr(splits, "empty", True):
+    for dt, ratio in splits.tail(10).items():
+        rows.append({
+            "Category": "SPLIT",
+            "Date": pd.to_datetime(dt),
+            "Title / Detail": f"Split ratio {ratio}",
+            "Extra": "",
+        })
 
-        def classify_event(ev_type: str, detail: str) -> str:
-            t = (ev_type or "").upper()
-            d = (detail or "").lower()
 
-            if t in {
-                "BONUS",
-                "BONUS ISSUE",
-                "RIGHTS",
-                "RIGHTS ISSUE",
-                "BUYBACK",
-                "OFS",
-                "BOND ISSUE",
-            }:
-                return t
+# ---------- Event Classifier ----------
+def classify_event(ev_type: str, detail: str) -> str:
+    t = (ev_type or "").upper()
+    d = (detail or "").lower()
 
-            if "bonus" in d:
-                return "BONUS ISSUE"
-            if "rights issue" in d:
-                return "RIGHTS ISSUE"
-            if "buyback" in d or "buy-back" in d:
-                return "BUYBACK"
-            if "offer for sale" in d or "ofs" in d:
-                return "OFS"
-            if "bond" in d or "debenture" in d:
-                return "BOND ISSUE"
-            if "dividend" in d:
-                return "DIVIDEND"
-            if "split" in d or "sub-division" in d:
-                return "SPLIT"
+    if t in {
+        "BONUS",
+        "BONUS ISSUE",
+        "RIGHTS",
+        "RIGHTS ISSUE",
+        "BUYBACK",
+        "OFS",
+        "BOND ISSUE",
+    }:
+        return t
 
-            return t or "EVENT"
+    if "bonus" in d:
+        return "BONUS ISSUE"
+    if "rights issue" in d:
+        return "RIGHTS ISSUE"
+    if "buyback" in d or "buy-back" in d:
+        return "BUYBACK"
+    if "offer for sale" in d or "ofs" in d:
+        return "OFS"
+    if "bond" in d or "debenture" in d:
+        return "BOND ISSUE"
+    if "dividend" in d:
+        return "DIVIDEND"
+    if "split" in d or "sub-division" in d:
+        return "SPLIT"
 
-        # 3) Structured events
-        for ev in events[-20:]:
-            ev_type = ev.get("type", "")
-            detail = ev.get("detail", "")
-            cat = classify_event(ev_type, detail)
+    return t or "EVENT"
 
-            rows.append(
-                {
-                    "Category": cat,
-                    "Date": ev.get("date"),
-                    "Title / Detail": detail,
-                    "Extra": ev.get("source", ""),
-                }
-            )
 
-        # 4) News as event entries
-        for n in news_list[:20]:
-            headline = n.get("title", "")
-            pub = n.get("publisher", "")
-            ts = n.get("providerPublishTime")
-            cat = classify_event("EVENT NEWS", headline)
+# 3) Structured events
+for ev in events[-20:]:
+    ev_type = ev.get("type", "")
+    detail = ev.get("detail", "")
+    cat = classify_event(ev_type, detail)
 
-            rows.append(
-                {
-                    "Category": cat,
-                    "Date": pd.to_datetime(ts, unit="s", errors="ignore")
-                    if ts
-                    else "",
-                    "Title / Detail": headline,
-                    "Extra": pub,
-                }
-            )
+    rows.append({
+        "Category": cat,
+        "Date": ev.get("date"),
+        "Title / Detail": detail,
+        "Extra": ev.get("source", ""),
+    })
+
+
+# 4) News as event entries
+for n in news_list[:20]:
+    headline = n.get("title", "")
+    pub = n.get("publisher", "")
+    ts = n.get("providerPublishTime")
+    cat = classify_event("EVENT NEWS", headline)
+
+    rows.append({
+        "Category": cat,
+        "Date": pd.to_datetime(ts, unit="s", errors="ignore") if ts else "",
+        "Title / Detail": headline,
+        "Extra": pub,
+    })
 
 # ---------- 5) Show table ----------
 if rows:
