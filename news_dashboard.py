@@ -2076,11 +2076,12 @@ except Exception:
         # --- Corporate actions + events in ONE table ---
         st.markdown("### 🏢 Corporate Actions & Events (Summary)")
 
-        sa = fetch_stock_actions(stock_input)
-        divs = sa.get("dividends")
-        splits = sa.get("splits")
-        events = sa.get("events", [])
-        news_list = sa.get("news", [])
+sa = fetch_stock_actions(stock_input)
+
+divs = sa.get("dividends")
+splits = sa.get("splits")
+events = sa.get("events", [])
+news_list = sa.get("news", [])
 
 rows = []
 
