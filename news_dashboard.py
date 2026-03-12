@@ -1901,7 +1901,11 @@ st.markdown("Enter symbol in sidebar (e.g., RELIANCE.NS, AAPL, TCS.NS).")
 if stock_input:
     # --- AUTO-DETECT CURRENCY FROM YFINANCE ---
     t = yf.Ticker(stock_input)
-    info = t.info if hasattr(t, "info") else {}
+
+try:
+    info = t.fast_info
+except Exception:
+    info = {}
     currency = info.get("currency", "USD")
 
     symbol_map = {
